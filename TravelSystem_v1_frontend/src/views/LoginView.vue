@@ -23,7 +23,7 @@
             placeholder="请输入密码"
           />
         </div>
-        <button type="submit" class="login-btn">登录</button>
+        <button type="submit" class="login-btn" :disabled="loading">登录</button>
       </form>
       <div class="register-link">
         还没有账号？<router-link to="/register">立即注册</router-link>
@@ -40,6 +40,7 @@ import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const userStore = useUserStore()
+const loading = ref(false)
 
 const form = ref({
   username: '',
@@ -47,14 +48,21 @@ const form = ref({
 })
 
 const handleLogin = async () => {
+  if (loading.value) return
+  
+  loading.value = true
   try {
     console.log('开始登录请求:', form.value)
-    await userStore.login(form.value)
-    ElMessage.success('登录成功')
-    router.push('/')
+    const success = await userStore.login(form.value)
+    if (success) {
+      ElMessage.success('登录成功')
+      router.push('/')
+    }
   } catch (error) {
     console.error('登录错误:', error)
     ElMessage.error(error.message || '登录失败')
+  } finally {
+    loading.value = false
   }
 }
 </script>
@@ -104,31 +112,36 @@ input {
 .login-btn {
   width: 100%;
   padding: 0.75rem;
-  background-color: #409EFF;
+  background-color: #007AFF;
   color: white;
   border: none;
   border-radius: 4px;
   font-size: 1rem;
   cursor: pointer;
   margin-top: 1rem;
-}
-
-.login-btn:hover {
-  background-color: #66b1ff;
+  
+  &:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  
+  &:hover:not(:disabled) {
+    background-color: #0056b3;
+  }
 }
 
 .register-link {
   text-align: center;
   margin-top: 1rem;
   color: #666;
-}
-
-.register-link a {
-  color: #409EFF;
-  text-decoration: none;
-}
-
-.register-link a:hover {
-  text-decoration: underline;
+  
+  a {
+    color: #007AFF;
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 }
 </style> 

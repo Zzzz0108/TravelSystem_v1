@@ -51,8 +51,10 @@ public class SpotController {
     }
 
     @GetMapping("/search")
-    public List<Spot> searchSpots(@RequestParam String keyword) {
-        return spotService.searchSpots(keyword);
+    public List<Spot> searchSpots(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Spot.SpotType type) {
+        return spotService.searchSpots(keyword, type);
     }
 
     @GetMapping("/city/{city}")

@@ -17,7 +17,7 @@ export default defineConfig({
     strictPort: true, // 如果端口被占用，则直接退出
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:9090',
         changeOrigin: true,
         secure: false,
         ws: true

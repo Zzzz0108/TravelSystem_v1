@@ -36,8 +36,12 @@
           </router-link>
           <!-- 头像和用户名 -->
           <div class="user-info">
-            <UserAvatar :src="avatarUrl" :name="userStore.username" size="32" />
-            <span class="username">{{ userStore.username }}</span>
+            <UserAvatar 
+              :src="avatarUrl" 
+              :name="userStore.user.username" 
+              size="32" 
+            />
+            <span class="username">{{ userStore.user.username }}</span>
           </div>
           <!-- 退出登录按钮 -->
           <button class="nav-item" @click="logout">
@@ -93,7 +97,7 @@ const heartIcon = computed(() =>
 )
 // 头像 URL（根据用户名动态生成）
 const avatarUrl = computed(() => {
-  return userStore.avatar || `https://avatars.dicebear.com/api/initials/${userStore.username}.svg`;
+  return userStore.user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userStore.user.username)}`;
 });
 
 // 退出登录

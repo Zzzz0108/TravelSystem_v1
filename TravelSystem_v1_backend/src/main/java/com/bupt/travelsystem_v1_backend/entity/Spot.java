@@ -1,5 +1,6 @@
 package com.bupt.travelsystem_v1_backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -28,13 +29,12 @@ public class Spot {
     private String image;
 
     @ManyToMany(mappedBy = "favoriteSpots")
+    @JsonIgnore
     private Set<User> favoritedBy = new HashSet<>();
 
     public enum SpotType {
         SCENIC_AREA, // 景区
-        UNIVERSITY,   // 学校
-        MUSEUM,        // 博物馆
-        PARK           // 公园
+        UNIVERSITY   // 学校
     }
 
     public Long getId() {

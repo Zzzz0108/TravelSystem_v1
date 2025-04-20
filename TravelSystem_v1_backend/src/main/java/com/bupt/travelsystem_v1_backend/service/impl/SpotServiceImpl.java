@@ -6,6 +6,7 @@ import com.bupt.travelsystem_v1_backend.repository.SpotRepository;
 import com.bupt.travelsystem_v1_backend.repository.UserRepository;
 import com.bupt.travelsystem_v1_backend.service.SpotService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -31,8 +32,11 @@ public class SpotServiceImpl implements SpotService {
     }
 
     @Override
-    public List<Spot> searchSpots(String keyword) {
-        return spotRepository.findByNameContainingOrCityContaining(keyword, keyword);
+    public List<Spot> searchSpots(String keyword, Spot.SpotType type) {
+        if (type == null) {
+            return spotRepository.searchByKeywordOrderByPopularityDesc(keyword);
+        }
+        return spotRepository.findByNameContainingAndTypeOrderByPopularityDesc(keyword, type);
     }
 
     @Override
@@ -42,6 +46,9 @@ public class SpotServiceImpl implements SpotService {
 
     @Override
     public List<Spot> getSpotsByType(Spot.SpotType type) {
+        if (type == null) {
+            return getAllSpots();
+        }
         return spotRepository.findByTypeOrderByPopularityDesc(type);
     }
 
@@ -66,7 +73,9 @@ public class SpotServiceImpl implements SpotService {
         Spot spot = getSpotById(id)
                 .orElseThrow(() -> new RuntimeException("Spot not found"));
         spot.setPopularity(spot.getPopularity() + 1);
-        return spotRepository.save(spot);
+        spot = spotRepository.save(spot);
+        spotRepository.flush(); // 确保立即更新数据库
+        return spot;
     }
 
     @Override
@@ -75,7 +84,7 @@ public class SpotServiceImpl implements SpotService {
         String username = authentication.getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return spotRepository.findByFavoritedByContaining(user);
+        return spotRepository.findByFavoritedByContaining(user, Sort.by(Sort.Direction.DESC, "popularity"));
     }
 
     @Override

@@ -7,6 +7,15 @@ const api = axios.create({
   withCredentials: true
 })
 
+// 添加请求拦截器
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 export const useUserStore = defineStore('user', {
   state: () => {
     // 初始化时设置默认用户
@@ -14,6 +23,7 @@ export const useUserStore = defineStore('user', {
       if (!localStorage.getItem('isLogin')) {
         localStorage.setItem('isLogin', 'false')
         localStorage.setItem('user', JSON.stringify({
+          id: null,
           username: '',
           avatar: ''
         }))
@@ -21,6 +31,7 @@ export const useUserStore = defineStore('user', {
       return {
         isLogin: localStorage.getItem('isLogin') === 'true',
         user: JSON.parse(localStorage.getItem('user')) || {
+          id: null,
           username: '',
           avatar: ''
         }
@@ -49,14 +60,16 @@ export const useUserStore = defineStore('user', {
         console.log('开始登录请求:', form)
         const response = await api.post('/auth/login', form)
         console.log('登录响应:', response)
-        if (response.status === 200) {
+        if (response.status === 200 && response.data) {
           this.isLogin = true
           this.user = {
-            username: form.username,
-            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${form.username}`
+            id: response.data.user.id,
+            username: response.data.user.username,
+            avatar: response.data.user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(response.data.user.username)}`
           }
           localStorage.setItem('isLogin', 'true')
           localStorage.setItem('user', JSON.stringify(this.user))
+          localStorage.setItem('token', response.data.token)
           return true
         }
         throw new Error(response.data)
@@ -68,25 +81,29 @@ export const useUserStore = defineStore('user', {
     logout() {
       this.isLogin = false
       this.user = {
+        id: null,
         username: '',
         avatar: ''
       }
       localStorage.removeItem('isLogin')
       localStorage.removeItem('user')
+      localStorage.removeItem('token')
     },
     async checkLoginStatus() {
       try {
         const response = await api.get('/auth/check')
-        if (response.status === 200) {
+        if (response.status === 200 && response.data.username) {
           this.isLogin = true
           this.user = {
+            id: response.data.id,
             username: response.data.username,
-            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${response.data.username}`
+            avatar: response.data.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(response.data.username)}`
           }
           localStorage.setItem('isLogin', 'true')
           localStorage.setItem('user', JSON.stringify(this.user))
           return true
         }
+        this.logout()
         return false
       } catch (error) {
         console.error('检查登录状态错误:', error)

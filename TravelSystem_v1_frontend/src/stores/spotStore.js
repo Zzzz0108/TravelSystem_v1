@@ -16,32 +16,78 @@ export const useSpotStore = defineStore('spot', () => {
 
   // 按热度排序的计算属性
   const sortedSpots = computed(() => {
-    return [...spots.value].sort((a, b) => b.popularity - a.popularity)
+    if (!spots.value || !Array.isArray(spots.value)) {
+      return []
+    }
+    return [...spots.value]
+      .filter(spot => spot && typeof spot === 'object' && spot.id && spot.name)
+      .sort((a, b) => {
+        if (!a || !b) return 0
+        if (!a.popularity || !b.popularity) return 0
+        return b.popularity - a.popularity  // 按人气降序排序
+      })
   })
 
   const fetchSpots = async () => {
+    loading.value = true
+    error.value = null
     try {
-      loading.value = true
       const response = await api.get('/spots')
-      spots.value = response.data
+      if (response.data && Array.isArray(response.data)) {
+        // 确保数据格式正确
+        spots.value = response.data.map(spot => ({
+          id: spot.id,
+          name: spot.name,
+          city: spot.city,
+          popularity: spot.popularity || 0,
+          type: spot.type,
+          image: spot.image,
+          created_at: spot.created_at,
+          updated_at: spot.updated_at
+        }))
+      } else {
+        spots.value = []
+        error.value = '获取景点数据格式错误'
+      }
     } catch (err) {
-      error.value = err.message
-      console.error('获取景点列表失败:', err)
+      error.value = '获取景点数据失败，请稍后重试'
+      console.error('获取景点数据失败:', err)
+      spots.value = []
     } finally {
       loading.value = false
     }
   }
 
-  const searchSpots = async (keyword, type) => {
+  const searchSpots = async (keyword = '', type = '') => {
+    loading.value = true
+    error.value = null
     try {
-      loading.value = true
       const response = await api.get('/spots/search', {
-        params: { keyword, type }
+        params: {
+          keyword,
+          type
+        }
       })
-      spots.value = response.data
+      if (response.data && Array.isArray(response.data)) {
+        // 确保数据格式正确
+        spots.value = response.data.map(spot => ({
+          id: spot.id,
+          name: spot.name,
+          city: spot.city,
+          popularity: spot.popularity || 0,
+          type: spot.type,
+          image: spot.image,
+          created_at: spot.created_at,
+          updated_at: spot.updated_at
+        }))
+      } else {
+        spots.value = []
+        error.value = '搜索数据格式错误'
+      }
     } catch (err) {
-      error.value = err.message
-      console.error('搜索景点失败:', err)
+      error.value = '搜索失败，请稍后重试'
+      console.error('搜索失败:', err)
+      spots.value = []
     } finally {
       loading.value = false
     }
@@ -55,12 +101,24 @@ export const useSpotStore = defineStore('spot', () => {
     
     try {
       const response = await api.post(`/spots/${id}/increment-popularity`)
-      const updatedSpot = response.data.spot
-      const index = spots.value.findIndex(s => s.id === id)
-      if (index !== -1) {
-        spots.value[index] = updatedSpot
+      if (response.data && response.data.spot) {
+        const updatedSpot = {
+          id: response.data.spot.id,
+          name: response.data.spot.name,
+          city: response.data.spot.city,
+          popularity: response.data.spot.popularity || 0,
+          type: response.data.spot.type,
+          image: response.data.spot.image,
+          created_at: response.data.spot.created_at,
+          updated_at: response.data.spot.updated_at
+        }
+        const index = spots.value.findIndex(s => s.id === id)
+        if (index !== -1) {
+          spots.value[index] = updatedSpot
+        }
+        return response.data.redirectUrl
       }
-      return response.data.redirectUrl
+      throw new Error('更新热度失败')
     } catch (err) {
       console.error('增加热度失败:', err)
       throw err
@@ -98,23 +156,23 @@ export const useSpotStore = defineStore('spot', () => {
   const fetchFavoriteSpots = async () => {
     try {
       const response = await api.get('/spots/favorites')
-      favoriteSpots.value = response.data
+      if (response.data && Array.isArray(response.data)) {
+        favoriteSpots.value = response.data.map(spot => ({
+          id: spot.id,
+          name: spot.name,
+          city: spot.city,
+          popularity: spot.popularity || 0,
+          type: spot.type,
+          image: spot.image,
+          created_at: spot.created_at,
+          updated_at: spot.updated_at
+        }))
+      } else {
+        favoriteSpots.value = []
+      }
     } catch (err) {
       console.error('获取收藏列表失败:', err)
-      throw err
-    }
-  }
-
-  const getFavoriteSpots = async () => {
-    try {
-      loading.value = true
-      const response = await api.get('/spots/favorites')
-      favoriteSpots.value = response.data
-    } catch (error) {
-      console.error('获取收藏景点失败:', error)
-      error.value = error.message
-    } finally {
-      loading.value = false
+      favoriteSpots.value = []
     }
   }
 
@@ -126,15 +184,18 @@ export const useSpotStore = defineStore('spot', () => {
     
     try {
       const response = await api.post(`/spots/${spotId}/favorite`)
-      if (response.data.favorited) {
-        const spot = spots.value.find(s => s.id === spotId)
-        if (spot) {
-          favoriteSpots.value.push(spot)
+      if (response.data && typeof response.data.favorited === 'boolean') {
+        if (response.data.favorited) {
+          const spot = spots.value.find(s => s.id === spotId)
+          if (spot) {
+            favoriteSpots.value.push(spot)
+          }
+        } else {
+          favoriteSpots.value = favoriteSpots.value.filter(s => s.id !== spotId)
         }
-      } else {
-        favoriteSpots.value = favoriteSpots.value.filter(s => s.id !== spotId)
+        return response.data.favorited
       }
-      return response.data.favorited
+      throw new Error('切换收藏状态失败')
     } catch (error) {
       console.error('切换收藏状态失败:', error)
       throw error
@@ -143,7 +204,7 @@ export const useSpotStore = defineStore('spot', () => {
 
   return {
     spots,
-    sortedSpots, // 导出排序后的景点列表
+    sortedSpots,
     favoriteSpots,
     loading,
     error,
@@ -153,7 +214,6 @@ export const useSpotStore = defineStore('spot', () => {
     addFavorite,
     removeFavorite,
     fetchFavoriteSpots,
-    getFavoriteSpots,
     toggleFavorite
   }
 }) 

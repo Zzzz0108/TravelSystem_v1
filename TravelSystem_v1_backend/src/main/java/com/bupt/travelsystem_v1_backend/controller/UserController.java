@@ -1,6 +1,6 @@
 package com.bupt.travelsystem_v1_backend.controller;
 
-import com.bupt.travelsystem_v1_backend.dto.UserDTO;
+import com.bupt.travelsystem_v1_backend.dto.UserResponse;
 import com.bupt.travelsystem_v1_backend.entity.User;
 import com.bupt.travelsystem_v1_backend.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -17,14 +17,14 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<UserDTO> getUserInfo(@PathVariable Long userId) {
-        UserDTO userDTO = userService.getUserInfo(userId);
-        return ResponseEntity.ok(userDTO);
+    public ResponseEntity<UserResponse> getUserInfo(@PathVariable Long userId) {
+        UserResponse userResponse = userService.getUserInfo(userId);
+        return ResponseEntity.ok(userResponse);
     }
 
     @PutMapping("/{userId}")
-    public ResponseEntity<UserDTO> updateUserInfo(@PathVariable Long userId, @RequestBody User user) {
-        UserDTO updatedUser = userService.updateUserInfo(userId, user);
+    public ResponseEntity<UserResponse> updateUserInfo(@PathVariable Long userId, @RequestBody User user) {
+        UserResponse updatedUser = userService.updateUserInfo(userId, user);
         return ResponseEntity.ok(updatedUser);
     }
 

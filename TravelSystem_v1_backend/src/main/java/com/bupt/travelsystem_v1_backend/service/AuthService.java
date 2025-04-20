@@ -7,5 +7,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 
 public interface AuthService extends UserDetailsService {
     User register(RegisterRequest registerRequest);
-    String login(LoginRequest loginRequest);
+    User login(LoginRequest loginRequest);
+    User getCurrentUser();
 }

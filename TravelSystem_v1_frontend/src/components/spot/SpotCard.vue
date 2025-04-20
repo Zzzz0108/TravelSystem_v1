@@ -21,7 +21,11 @@
         <span class="type">{{ spot.type === 'SCENIC_AREA' ? '景区' : '学校' }}</span>
       </div>
       <div class="action-bar">
-        <favorite-button :is-favorite="isFavorite" @click="handleFavorite"/>
+        <favorite-button 
+          :spot-id="spot.id"
+          :initial-favorited="isFavorite"
+          @update:favorited="handleFavoriteUpdate"
+        />
       </div>
     </div>
   </div>
@@ -36,7 +40,16 @@ import { useSpotStore } from '@/stores/spotStore'
 const props = defineProps({
   spot: {
     type: Object,
-    required: true
+    required: true,
+    validator: (value) => {
+      return value && typeof value === 'object' && 
+             typeof value.id === 'number' && 
+             typeof value.name === 'string' &&
+             typeof value.image === 'string' &&
+             typeof value.popularity === 'number' &&
+             typeof value.city === 'string' &&
+             typeof value.type === 'string'
+    }
   }
 })
 
@@ -44,29 +57,42 @@ const router = useRouter()
 const spotStore = useSpotStore()
 
 const isFavorite = computed(() => {
+  if (!props.spot || !props.spot.id) return false
   return spotStore.favoriteSpots.some(s => s.id === props.spot.id)
 })
 
 const handleCardClick = async (event) => {
+  if (!props.spot || !props.spot.id) {
+    console.error('无效的景点数据')
+    return
+  }
+  
   // 如果点击的是收藏按钮，不进行跳转
   if (event.target.closest('.action-bar')) {
     return
   }
   
   try {
-    const redirectUrl = await spotStore.incrementPopularity(props.spot.id)
-    router.push(redirectUrl)
+    await spotStore.incrementPopularity(props.spot.id)
+    router.push('/navigation')
   } catch (error) {
     console.error('增加热度失败:', error)
+    // 即使增加热度失败，也进行跳转
+    router.push('/navigation')
   }
 }
 
-const handleFavorite = async () => {
+const handleFavoriteUpdate = async (favorited) => {
+  if (!props.spot || !props.spot.id) {
+    console.error('无效的景点数据')
+    return
+  }
+  
   try {
-    if (isFavorite.value) {
-      await spotStore.removeFavorite(props.spot.id)
-    } else {
+    if (favorited) {
       await spotStore.addFavorite(props.spot.id)
+    } else {
+      await spotStore.removeFavorite(props.spot.id)
     }
   } catch (error) {
     console.error('收藏操作失败:', error)

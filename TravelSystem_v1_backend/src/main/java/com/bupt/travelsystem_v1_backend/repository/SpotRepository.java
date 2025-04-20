@@ -7,16 +7,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Sort;
 
 @Repository
 public interface SpotRepository extends JpaRepository<Spot, Long> {
-    List<Spot> findByNameContainingOrCityContaining(String name, String city);
+    List<Spot> findByNameContainingOrCityContaining(String name, String city, Sort sort);
     
-    List<Spot> findByCity(String city);
+    List<Spot> findByCity(String city, Sort sort);
     
-    List<Spot> findByType(Spot.SpotType type);
+    List<Spot> findByType(Spot.SpotType type, Sort sort);
     
-    List<Spot> findByFavoritedByContaining(User user);
+    List<Spot> findByFavoritedByContaining(User user, Sort sort);
     
     @Query("SELECT s FROM Spot s ORDER BY s.popularity DESC")
     List<Spot> findAllByOrderByPopularityDesc();

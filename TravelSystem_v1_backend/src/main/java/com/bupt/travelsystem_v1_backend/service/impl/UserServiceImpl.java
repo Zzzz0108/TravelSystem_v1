@@ -1,6 +1,6 @@
 package com.bupt.travelsystem_v1_backend.service.impl;
 
-import com.bupt.travelsystem_v1_backend.dto.UserDTO;
+import com.bupt.travelsystem_v1_backend.dto.UserResponse;
 import com.bupt.travelsystem_v1_backend.entity.User;
 import com.bupt.travelsystem_v1_backend.repository.UserRepository;
 import com.bupt.travelsystem_v1_backend.service.UserService;
@@ -23,18 +23,18 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserDTO register(User user) {
+    public UserResponse register(User user) {
         if (userRepository.existsByUsername(user.getUsername())) {
             throw new RuntimeException("用户名已存在");
         }
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         User savedUser = userRepository.save(user);
-        return convertToDTO(savedUser);
+        return convertToUserResponse(savedUser);
     }
 
     @Override
-    public UserDTO login(String username, String password) {
+    public UserResponse login(String username, String password) {
         Optional<User> userOpt = userRepository.findByUsername(username);
         if (userOpt.isEmpty()) {
             throw new RuntimeException("用户不存在");
@@ -45,7 +45,7 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("密码错误");
         }
 
-        return convertToDTO(user);
+        return convertToUserResponse(user);
     }
 
     @Override
@@ -54,35 +54,35 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserDTO getUserInfo(Long userId) {
+    public UserResponse getUserInfo(Long userId) {
         return userRepository.findById(userId)
-                .map(this::convertToDTO)
+                .map(this::convertToUserResponse)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
     }
 
     @Override
     @Transactional
-    public UserDTO updateUserInfo(Long userId, User user) {
-        User existingUser = userRepository.findById(userId)
+    public UserResponse updateUserInfo(Long userId, User updatedUser) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        if (user.getUsername() != null && !user.getUsername().equals(existingUser.getUsername())) {
-            if (userRepository.existsByUsername(user.getUsername())) {
+        if (updatedUser.getUsername() != null && !updatedUser.getUsername().equals(user.getUsername())) {
+            if (userRepository.existsByUsername(updatedUser.getUsername())) {
                 throw new RuntimeException("用户名已存在");
             }
-            existingUser.setUsername(user.getUsername());
+            user.setUsername(updatedUser.getUsername());
         }
 
-        if (user.getPassword() != null) {
-            existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
+        if (updatedUser.getPassword() != null) {
+            user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
         }
 
-        if (user.getAvatar() != null) {
-            existingUser.setAvatar(user.getAvatar());
+        if (updatedUser.getAvatar() != null) {
+            user.setAvatar(updatedUser.getAvatar());
         }
 
-        User updatedUser = userRepository.save(existingUser);
-        return convertToDTO(updatedUser);
+        User savedUser = userRepository.save(user);
+        return convertToUserResponse(savedUser);
     }
 
     @Override
@@ -94,9 +94,11 @@ public class UserServiceImpl implements UserService {
         userRepository.deleteById(userId);
     }
 
-    private UserDTO convertToDTO(User user) {
-        UserDTO userDTO = new UserDTO();
-        BeanUtils.copyProperties(user, userDTO);
-        return userDTO;
+    private UserResponse convertToUserResponse(User user) {
+        UserResponse response = new UserResponse();
+        response.setId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setAvatar(user.getAvatar());
+        return response;
     }
 } 

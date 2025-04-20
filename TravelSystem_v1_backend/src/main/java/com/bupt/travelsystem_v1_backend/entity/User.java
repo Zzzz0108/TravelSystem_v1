@@ -1,5 +1,6 @@
 package com.bupt.travelsystem_v1_backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,13 +22,11 @@ public class User implements UserDetails {
     private String username;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String password;
 
     @Column
     private String avatar;
-
-    @Column
-    private String role;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -41,6 +40,7 @@ public class User implements UserDetails {
         joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "spot_id")
     )
+    @JsonIgnore
     private Set<Spot> favoriteSpots = new HashSet<>();
 
     // 实现UserDetails接口的方法
@@ -120,14 +120,6 @@ public class User implements UserDetails {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
-    public String getRole() {
-        return role;
     }
 
     @Override
