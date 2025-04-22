@@ -2,6 +2,7 @@ package com.bupt.travelsystem_v1_backend.controller;
 
 import com.bupt.travelsystem_v1_backend.entity.Spot;
 import com.bupt.travelsystem_v1_backend.service.SpotService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -68,12 +69,25 @@ public class SpotController {
     }
 
     @GetMapping("/favorites")
-    public List<Spot> getUserFavorites() {
-        return spotService.getUserFavorites();
+    public ResponseEntity<List<Spot>> getUserFavorites() {
+        try {
+            List<Spot> favorites = spotService.getUserFavorites();
+            return ResponseEntity.ok(favorites);
+        } catch (RuntimeException e) {
+            if (e.getMessage().equals("用户未登录")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping("/{id}/toggle-favorite")
-    public boolean toggleFavorite(@PathVariable Long id) {
-        return spotService.toggleFavorite(id);
+    public ResponseEntity<Boolean> toggleFavorite(@PathVariable Long id) {
+        try {
+            boolean result = spotService.toggleFavorite(id);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+        }
     }
 } 

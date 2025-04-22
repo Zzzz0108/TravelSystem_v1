@@ -24,7 +24,6 @@
         <favorite-button 
           :spot-id="spot.id"
           :initial-favorited="isFavorite"
-          @update:favorited="handleFavoriteUpdate"
         />
       </div>
     </div>
@@ -62,40 +61,25 @@ const isFavorite = computed(() => {
 })
 
 const handleCardClick = async (event) => {
-  if (!props.spot || !props.spot.id) {
-    console.error('无效的景点数据')
-    return
+  // 如果点击的是收藏按钮或其子元素，不进行跳转
+  if (event.target.closest('.action-bar') || event.target.closest('.favorite-button')) {
+    console.log('点击了收藏按钮，不进行跳转');
+    return;
   }
   
-  // 如果点击的是收藏按钮，不进行跳转
-  if (event.target.closest('.action-bar')) {
-    return
+  console.log('点击了卡片，准备跳转');
+  if (!props.spot || !props.spot.id) {
+    console.error('无效的景点数据');
+    return;
   }
   
   try {
-    await spotStore.incrementPopularity(props.spot.id)
-    router.push('/navigation')
+    await spotStore.incrementPopularity(props.spot.id);
+    router.push('/navigation');
   } catch (error) {
-    console.error('增加热度失败:', error)
+    console.error('增加热度失败:', error);
     // 即使增加热度失败，也进行跳转
-    router.push('/navigation')
-  }
-}
-
-const handleFavoriteUpdate = async (favorited) => {
-  if (!props.spot || !props.spot.id) {
-    console.error('无效的景点数据')
-    return
-  }
-  
-  try {
-    if (favorited) {
-      await spotStore.addFavorite(props.spot.id)
-    } else {
-      await spotStore.removeFavorite(props.spot.id)
-    }
-  } catch (error) {
-    console.error('收藏操作失败:', error)
+    router.push('/navigation');
   }
 }
 </script>

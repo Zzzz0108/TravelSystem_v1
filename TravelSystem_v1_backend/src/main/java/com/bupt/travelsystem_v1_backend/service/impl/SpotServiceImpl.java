@@ -81,10 +81,15 @@ public class SpotServiceImpl implements SpotService {
     @Override
     public List<Spot> getUserFavorites() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("用户未登录");
+        }
+        
         String username = authentication.getName();
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return spotRepository.findByFavoritedByContaining(user, Sort.by(Sort.Direction.DESC, "popularity"));
+            .orElseThrow(() -> new RuntimeException("用户不存在"));
+            
+        return spotRepository.findByFavoritedByContaining(user.getId(), Sort.by(Sort.Direction.DESC, "popularity"));
     }
 
     @Override
@@ -101,11 +106,15 @@ public class SpotServiceImpl implements SpotService {
         boolean isFavorited = spot.getFavoritedBy().contains(user);
         if (isFavorited) {
             spot.getFavoritedBy().remove(user);
+            user.getFavoriteSpots().remove(spot);
+            spotRepository.save(spot);
+            userRepository.save(user);
         } else {
             spot.getFavoritedBy().add(user);
+            user.getFavoriteSpots().add(spot);
+            spotRepository.save(spot);
+            userRepository.save(user);
         }
-
-        spotRepository.save(spot);
         return !isFavorited;
     }
 } 

@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.Modifying;
 
 @Repository
 public interface SpotRepository extends JpaRepository<Spot, Long> {
@@ -17,7 +18,8 @@ public interface SpotRepository extends JpaRepository<Spot, Long> {
     
     List<Spot> findByType(Spot.SpotType type, Sort sort);
     
-    List<Spot> findByFavoritedByContaining(User user, Sort sort);
+    @Query("SELECT DISTINCT s FROM Spot s JOIN s.favoritedBy u WHERE u.id = :userId ORDER BY s.popularity DESC")
+    List<Spot> findByFavoritedByContaining(@Param("userId") Long userId, Sort sort);
     
     @Query("SELECT s FROM Spot s ORDER BY s.popularity DESC")
     List<Spot> findAllByOrderByPopularityDesc();
@@ -33,4 +35,8 @@ public interface SpotRepository extends JpaRepository<Spot, Long> {
     
     @Query("SELECT s FROM Spot s WHERE s.city = :city ORDER BY s.popularity DESC")
     List<Spot> findByCityOrderByPopularityDesc(@Param("city") String city);
+
+    @Modifying
+    @Query("DELETE FROM User u WHERE u.id = :userId AND :spotId MEMBER OF u.favoriteSpots")
+    void deleteFavoriteByUserIdAndSpotId(@Param("userId") Long userId, @Param("spotId") Long spotId);
 } 

@@ -14,6 +14,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useSpotStore } from '@/stores/spotStore'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   spotId: {
@@ -39,13 +40,34 @@ const heartPath = computed(() => {
 })
 
 const handleClick = async () => {
+  console.log('FavoriteButton: handleClick 开始执行', {
+    spotId: props.spotId,
+    isFavorited: isFavorited.value,
+    timestamp: new Date().toISOString()
+  });
+  
   try {
     loading.value = true
-    const favorited = await spotStore.toggleFavorite(props.spotId)
-    isFavorited.value = favorited
-    emit('update:favorited', favorited)
+    const success = await spotStore.toggleFavorite(props.spotId)
+    console.log('FavoriteButton: toggleFavorite 执行结果', {
+      success,
+      spotId: props.spotId,
+      timestamp: new Date().toISOString()
+    });
+    isFavorited.value = success
+    emit('update:favorited', success)
   } catch (error) {
-    console.error('切换收藏状态失败:', error)
+    console.error('FavoriteButton: 收藏操作失败', {
+      error,
+      spotId: props.spotId,
+      timestamp: new Date().toISOString()
+    });
+    ElMessage.error('操作失败，请重试');
+    // 不再手动恢复状态，而是重新获取收藏状态
+    await spotStore.fetchFavoriteSpots()
+    const isCurrentlyFavorited = spotStore.favoriteSpots.some(spot => spot.id === props.spotId)
+    isFavorited.value = isCurrentlyFavorited
+    emit('update:favorited', isCurrentlyFavorited)
   } finally {
     loading.value = false
   }

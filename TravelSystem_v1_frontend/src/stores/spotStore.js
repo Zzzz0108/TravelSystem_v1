@@ -100,7 +100,19 @@ export const useSpotStore = defineStore('spot', () => {
     }
     
     try {
-      const response = await api.post(`/spots/${id}/increment-popularity`)
+
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('未登录，请先登录')
+      }
+
+      const response = await api.post(`/spots/${id}/increment-popularity`, null, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+
       if (response.data && response.data.spot) {
         const updatedSpot = {
           id: response.data.spot.id,
@@ -126,36 +138,78 @@ export const useSpotStore = defineStore('spot', () => {
   }
 
   const addFavorite = async (id) => {
-    if (!id) {
-      console.error('spotId is undefined')
-      throw new Error('景点ID不能为空')
-    }
-    
     try {
-      await api.post(`/spots/${id}/favorite`)
-      const spot = spots.value.find(s => s.id === id)
-      if (spot) {
-        favoriteSpots.value.push(spot)
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('用户未登录');
       }
-    } catch (err) {
-      console.error('收藏景点失败:', err)
-      throw err
+      
+      console.log('开始添加收藏，景点ID:', id);
+      const response = await api.post(`/spots/${id}/toggle-favorite`, null, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data) {
+        console.log('添加收藏成功，响应数据:', response.data);
+        // 更新收藏列表
+        favoriteSpots.value = [...favoriteSpots.value, response.data];
+        // 更新景点列表中的收藏状态
+        const spotIndex = spots.value.findIndex(spot => spot.id === id);
+        if (spotIndex !== -1) {
+          spots.value[spotIndex].favorited = true;
+        }
+      }
+    } catch (error) {
+      console.error('添加收藏失败:', error);
+      throw error;
     }
   }
 
   const removeFavorite = async (id) => {
     try {
-      await api.delete(`/spots/${id}/favorite`)
-      favoriteSpots.value = favoriteSpots.value.filter(s => s.id !== id)
-    } catch (err) {
-      console.error('取消收藏失败:', err)
-      throw err
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('用户未登录');
+      }
+      
+      console.log('开始取消收藏，景点ID:', id);
+      const response = await api.post(`/spots/${id}/toggle-favorite`, null, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data) {
+        console.log('取消收藏成功，响应数据:', response.data);
+        // 更新收藏列表
+        favoriteSpots.value = favoriteSpots.value.filter(spot => spot.id !== id);
+        // 更新景点列表中的收藏状态
+        const spotIndex = spots.value.findIndex(spot => spot.id === id);
+        if (spotIndex !== -1) {
+          spots.value[spotIndex].favorited = false;
+        }
+      }
+    } catch (error) {
+      console.error('取消收藏失败:', error);
+      throw error;
     }
   }
 
   const fetchFavoriteSpots = async () => {
     try {
-      const response = await api.get('/spots/favorites')
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('未登录，请先登录')
+      }
+
+      const response = await api.get('/spots/favorites', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
       if (response.data && Array.isArray(response.data)) {
         favoriteSpots.value = response.data.map(spot => ({
           id: spot.id,
@@ -169,10 +223,12 @@ export const useSpotStore = defineStore('spot', () => {
         }))
       } else {
         favoriteSpots.value = []
+        throw new Error('获取收藏列表数据格式错误')
       }
     } catch (err) {
       console.error('获取收藏列表失败:', err)
       favoriteSpots.value = []
+      throw err
     }
   }
 
@@ -183,9 +239,19 @@ export const useSpotStore = defineStore('spot', () => {
     }
     
     try {
-      const response = await api.post(`/spots/${spotId}/favorite`)
-      if (response.data && typeof response.data.favorited === 'boolean') {
-        if (response.data.favorited) {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('未登录，请先登录')
+      }
+      
+      const response = await api.post(`/spots/${spotId}/toggle-favorite`, null, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.data && typeof response.data === 'boolean') {
+        if (response.data) {
           const spot = spots.value.find(s => s.id === spotId)
           if (spot) {
             favoriteSpots.value.push(spot)
@@ -193,7 +259,7 @@ export const useSpotStore = defineStore('spot', () => {
         } else {
           favoriteSpots.value = favoriteSpots.value.filter(s => s.id !== spotId)
         }
-        return response.data.favorited
+        return response.data
       }
       throw new Error('切换收藏状态失败')
     } catch (error) {

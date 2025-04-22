@@ -101,6 +101,10 @@ export const useUserStore = defineStore('user', {
           }
           localStorage.setItem('isLogin', 'true')
           localStorage.setItem('user', JSON.stringify(this.user))
+          // 如果后端返回了新的 token，更新它
+          if (response.data.token) {
+            localStorage.setItem('token', response.data.token)
+          }
           return true
         }
         this.logout()

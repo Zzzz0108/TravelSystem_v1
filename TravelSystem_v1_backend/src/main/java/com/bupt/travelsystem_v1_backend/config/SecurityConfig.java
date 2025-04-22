@@ -32,21 +32,23 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/spots").permitAll()
                 .requestMatchers("/api/spots/search").permitAll()
                 .requestMatchers("/api/spots/city/**").permitAll()
                 .requestMatchers("/api/spots/type/**").permitAll()
-                .requestMatchers("/api/spots/{id}").permitAll()
-                .requestMatchers("/api/spots/{id}/toggle-favorite").authenticated()
-                .requestMatchers("/api/spots/{id}/increment-popularity").authenticated()
+                .requestMatchers("/api/spots/*").permitAll()
+                .requestMatchers("/api/spots/*/increment-popularity").authenticated()
+                .requestMatchers("/api/spots/*/favorite").authenticated()
+                .requestMatchers("/api/spots/*/toggle-favorite").authenticated()
                 .requestMatchers("/api/spots/favorites").authenticated()
                 .anyRequest().authenticated()
             )
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
             .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 

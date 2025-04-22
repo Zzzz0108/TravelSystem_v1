@@ -1,13 +1,19 @@
 <template>
   <main class="favorites-container">
     <h2 class="section-title">我的收藏</h2>
-    <div v-if="userStore.favorites.length" class="card-grid">
+    <div v-if="loading" class="loading-state">
+      <p>加载中...</p>
+    </div>
+    <div v-else-if="error" class="error-state">
+      <p>{{ error }}</p>
+    </div>
+    <div v-else-if="favorites.length" class="card-grid">
       <div 
-        v-for="fav in userStore.favorites"
+        v-for="fav in favorites"
         :key="fav.id"
         class="spot-card"
       >
-      <button 
+        <button 
           class="favorite-btn"
           @click.stop="toggleFavorite(fav)"
           :class="{ 'favorited': isFavorited(fav.id) }"
@@ -25,23 +31,11 @@
             class="card-image"
             loading="lazy"
           >
-          <div class="rating-badge">
-            <span class="rating-star">★</span>
-            {{ fav.rating.toFixed(1) }}
-          </div>
         </div>
         <div class="card-content">
           <h3 class="spot-name">{{ fav.name }}</h3>
-          <p class="spot-category">{{ fav.category }}</p>
-          <div class="tag-container">
-            <span 
-              v-for="tag in fav.tags" 
-              :key="tag" 
-              class="tag"
-            >
-              {{ tag }}
-            </span>
-          </div>
+          <p class="spot-city">{{ fav.city }}</p>
+          <p class="spot-type">{{ fav.type }}</p>
         </div>
       </div>
     </div>
@@ -55,12 +49,30 @@
 </template>
 
 <script setup>
-import { useUserStore } from '@/stores/userStore'
-import { computed } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useSpotStore } from '@/stores/spotStore'
 
-const userStore = useUserStore()
+const spotStore = useSpotStore()
+const favorites = ref([])
+const loading = ref(true)
+const error = ref(null)
+
+const fetchFavorites = async () => {
+  try {
+    loading.value = true
+    error.value = null
+    await spotStore.fetchFavoriteSpots()
+    favorites.value = spotStore.favoriteSpots
+  } catch (err) {
+    console.error('获取收藏列表失败:', err)
+    error.value = '获取收藏列表失败，请稍后重试'
+  } finally {
+    loading.value = false
+  }
+}
+
 const isFavorited = (id) => {
-  return userStore.favorites.some(f => f.id === id)
+  return favorites.value.some(f => f.id === id)
 }
 
 const heartPath = (id) => {
@@ -69,9 +81,18 @@ const heartPath = (id) => {
     : 'M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z'
 }
 
-const toggleFavorite = (spot) => {
-  userStore.toggleFavorite(spot)
+const toggleFavorite = async (spot) => {
+  try {
+    await spotStore.toggleFavorite(spot.id)
+    await fetchFavorites() // 刷新收藏列表
+  } catch (err) {
+    console.error('切换收藏状态失败:', err)
+  }
 }
+
+onMounted(() => {
+  fetchFavorites()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -79,6 +100,13 @@ const toggleFavorite = (spot) => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 40px 20px;
+}
+
+.loading-state,
+.error-state {
+  text-align: center;
+  padding: 80px 0;
+  color: #86868b;
 }
 
 .empty-state {
@@ -97,96 +125,31 @@ const toggleFavorite = (spot) => {
     font-size: 18px;
   }
 }
+
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
-  padding: 0 10px;
+  margin-top: 24px;
 }
 
 .spot-card {
   position: relative;
-  background: #ffffff;
-  border-radius: 18px;
+  background: #fff;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   }
 }
-.card-media {
-    position: relative;
-    height: 200px;
-    overflow: hidden;
-  }
-.card-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
 
-
-.rating-badge {
+.favorite-btn {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  backdrop-filter: blur(4px);
-}
-.rating-star {
-    color: #ffd700;
-    margin-right: 4px;
-  }
-
-  .card-content {
-    padding: 18px;
-  }
-
-  .spot-name {
-    font-size: 20px;
-    color: #1d1d1f;
-    margin: 0 0 8px;
-    font-weight: 600;
-  }
-
-  .spot-category {
-    color: #86868b;
-    font-size: 15px;
-    margin: 0 0 12px;
-  }
-
-  .tag-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .tag {
-    background: #f5f5f7;
-    color: #1d1d1f;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 13px;
-    transition: background 0.2s ease;
-    
-    &:hover {
-      background: #e0e0e5;
-    }
-  }
-  .favorite-btn {
-  position: absolute;
-  top: 12px;
-  left: 12px;
   background: rgba(255, 255, 255, 0.9);
   border: none;
   border-radius: 50%;
@@ -196,27 +159,63 @@ const toggleFavorite = (spot) => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 2;
   transition: all 0.3s ease;
-  
+  z-index: 1;
+
   &:hover {
     background: rgba(255, 255, 255, 1);
     transform: scale(1.1);
   }
 
-  &.favorited {
-    .heart-icon path {
-      fill: #ff2d55; // 实心颜色
-    }
+  &.favorited .heart-icon path {
+    fill: #ff2d55;
   }
 }
 
 .heart-icon {
   width: 20px;
   height: 20px;
-  path {
-    fill: #86868b; // 默认颜色
-    transition: fill 0.2s ease;
-  }
+}
+
+.heart-icon path {
+  fill: #86868b;
+  transition: fill 0.2s ease;
+}
+
+.card-media {
+  position: relative;
+  padding-top: 56.25%;
+  overflow: hidden;
+}
+
+.card-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-content {
+  padding: 16px;
+}
+
+.spot-name {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.spot-city {
+  margin: 0 0 4px;
+  color: #86868b;
+  font-size: 14px;
+}
+
+.spot-type {
+  margin: 0;
+  color: #86868b;
+  font-size: 14px;
 }
 </style>
