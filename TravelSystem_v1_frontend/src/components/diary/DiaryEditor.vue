@@ -81,12 +81,20 @@ const diaryStore = useDiaryStore()
 
 const handleFiles = (files) => {
   files.forEach(file => {
-    const url = URL.createObjectURL(file)
-    form.value.media.push({
-      type: file.type,
-      url: url,
-      file: file
-    })
+    // 检查是否已经存在相同的文件
+    const isDuplicate = form.value.media.some(media => 
+      media.file.name === file.name && 
+      media.file.size === file.size
+    )
+    
+    if (!isDuplicate) {
+      const url = URL.createObjectURL(file)
+      form.value.media.push({
+        type: file.type,
+        url: url,
+        file: file
+      })
+    }
   })
 }
 

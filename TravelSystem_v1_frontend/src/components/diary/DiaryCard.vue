@@ -63,7 +63,7 @@ import ShareButton from '@/components/common/ShareButton.vue'
 import { useRouter } from 'vue-router'
 import { onMounted } from 'vue'
 
-const defaultImage = '/public/images/diaries/default.jpg'
+const defaultImage = '/images/diaries/default.jpg'
 
 const router = useRouter()
 const forbiddenSelectors = ['.action-bar', '.view-count', 'button', 'a','svg', 'path']

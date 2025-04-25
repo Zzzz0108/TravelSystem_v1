@@ -29,11 +29,11 @@ public class Diary {
     @JsonIgnoreProperties({"password", "favoriteSpots", "diaries", "diaryLikes", "comments", "email"})
     private User author;
 
-    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "diary", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
     @JsonIgnoreProperties({"diary"})
     private List<DiaryImage> images = new ArrayList<>();
 
-    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "diary", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
     @JsonIgnoreProperties({"diary"})
     private List<DiaryTag> tags = new ArrayList<>();
 
@@ -50,6 +50,9 @@ public class Diary {
 
     @Column(nullable = false)
     private Integer likes = 0;
+
+    @Column(nullable = false)
+    private Integer commentsCount = 0;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

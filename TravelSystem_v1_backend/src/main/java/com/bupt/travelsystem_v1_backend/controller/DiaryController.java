@@ -2,6 +2,7 @@ package com.bupt.travelsystem_v1_backend.controller;
 
 import com.bupt.travelsystem_v1_backend.entity.Diary;
 import com.bupt.travelsystem_v1_backend.service.DiaryService;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
