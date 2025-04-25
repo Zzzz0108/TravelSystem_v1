@@ -69,17 +69,16 @@ const router = useRouter()
 const forbiddenSelectors = ['.action-bar', '.view-count', 'button', 'a','svg', 'path']
 // 添加卡片点击处理
 const handleCardClick = (event) => {
-  // 添加调试语句
   console.log('尝试跳转到日记:', props.diary.id)
-  const forbiddenElements = ['.action-bar', '.view-count', 'button', 'a', 'svg', 'path'];
+  const forbiddenElements = ['.action-bar', '.view-count', 'button', 'a', 'svg', 'path']
   const shouldPrevent = forbiddenElements.some(selector => 
     event.target.closest(selector)
-  );
+  )
 
   if (!shouldPrevent) {
-    router.push(`/diary/${props.diary.id}`);
+    router.push(`/diary/${props.diary.id}`)
   }
-};
+}
 
 const props = defineProps({
   diary: {

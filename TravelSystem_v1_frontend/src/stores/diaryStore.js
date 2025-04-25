@@ -188,36 +188,66 @@ export const useDiaryStore = defineStore('diary', () => {
     }
   }
 
-  // 创建评论
-  const createComment = async (diaryId, comment) => {
+  // 添加评论
+  const createComment = async (diaryId, content) => {
     try {
-      const newComment = await commentApi.createComment(diaryId, comment)
-      comments.value.unshift(newComment)
-      if (currentDiary.value) {
-        currentDiary.value.comments = currentDiary.value.comments || []
-        currentDiary.value.comments.unshift(newComment)
+      if (!diaryId || !content) {
+        throw new Error('参数错误');
       }
-      ElMessage.success('评论成功')
-      return newComment
+
+      const response = await commentApi.createComment(diaryId, { content });
+      console.log('评论创建响应:', response);
+      
+      if (!response?.data) {
+        throw new Error('服务器响应数据格式错误');
+      }
+
+      if (currentDiary.value?.id === diaryId) {
+        if (!currentDiary.value.comments) {
+          currentDiary.value.comments = [];
+        }
+        // 确保新评论数据格式正确
+        const newComment = {
+          id: response.data.id,
+          content: response.data.content,
+          createdAt: response.data.createdAt,
+          author: {
+            id: response.data.author?.id,
+            name: response.data.author?.name,
+            avatar: response.data.author?.avatar
+          }
+        };
+        currentDiary.value.comments = [newComment, ...currentDiary.value.comments];
+        currentDiary.value.commentsCount = (currentDiary.value.commentsCount || 0) + 1;
+      }
+      
+      return response.data;
     } catch (err) {
-      error.value = err.message
-      ElMessage.error('评论失败')
-      return null
+      console.error('创建评论失败:', err);
+      error.value = err.message;
+      ElMessage.error(err.message || '评论发布失败');
+      throw err;
     }
-  }
+  };
 
   // 删除评论
-  const deleteComment = async (id) => {
+  const deleteComment = async (commentId) => {
     try {
-      await commentApi.deleteComment(id)
-      comments.value = comments.value.filter(c => c.id !== id)
+      loading.value = true
+      await commentApi.deleteComment(commentId)
       if (currentDiary.value) {
-        currentDiary.value.comments = currentDiary.value.comments.filter(c => c.id !== id)
+        currentDiary.value.comments = currentDiary.value.comments.filter(
+          comment => comment.id !== commentId
+        )
+        currentDiary.value.commentsCount--
       }
-      ElMessage.success('删除评论成功')
+      ElMessage.success('评论删除成功')
     } catch (err) {
       error.value = err.message
-      ElMessage.error('删除评论失败')
+      ElMessage.error('评论删除失败')
+      throw err
+    } finally {
+      loading.value = false
     }
   }
 

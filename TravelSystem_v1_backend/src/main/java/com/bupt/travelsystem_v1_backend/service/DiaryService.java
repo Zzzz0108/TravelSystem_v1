@@ -38,4 +38,7 @@ public interface DiaryService {
     
     // 增加浏览量
     void incrementViews(Long diaryId);
+    
+    // 点赞日记
+    void likeDiary(Long diaryId, Long userId);
 } 

@@ -1,13 +1,14 @@
 package com.bupt.travelsystem_v1_backend.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-@Data
 @Entity
 @Table(name = "diary_likes")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@Data
+@NoArgsConstructor
 public class DiaryLike {
     @EmbeddedId
     private DiaryLikeId id;
@@ -23,4 +24,10 @@ public class DiaryLike {
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnoreProperties({"password", "favoriteSpots", "diaries", "diaryLikes", "comments"})
     private User user;
+
+    public DiaryLike(Diary diary, User user) {
+        this.id = new DiaryLikeId(diary.getId(), user.getId());
+        this.diary = diary;
+        this.user = user;
+    }
 } 

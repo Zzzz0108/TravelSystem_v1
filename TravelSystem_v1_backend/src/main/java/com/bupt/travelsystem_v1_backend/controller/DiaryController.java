@@ -62,10 +62,18 @@ public class DiaryController {
     }
 
     @PostMapping("/{id}/like")
-    public ResponseEntity<Void> toggleLike(@PathVariable Long id, Authentication authentication) {
-        Long userId = Long.parseLong(authentication.getName());
-        diaryService.toggleLike(id, userId);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<?> likeDiary(@PathVariable Long id, Authentication authentication) {
+        try {
+            Long userId = Long.parseLong(authentication.getName());
+            diaryService.likeDiary(id, userId);
+            return ResponseEntity.ok().build();
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Failed to like diary");
+        }
     }
 
     @GetMapping("/search")
