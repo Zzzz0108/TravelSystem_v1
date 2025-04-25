@@ -23,5 +23,12 @@ export default defineConfig({
         ws: true
       }
     }
+  },
+  assetsInclude: ['**/*.jpg', '**/*.jpeg', '**/*.png', '**/*.gif', '**/*.svg'],
+  publicDir: 'public',
+  build: {
+    assetsDir: 'assets',
+    outDir: 'dist',
+    assetsInlineLimit: 4096
   }
 })

@@ -1,13 +1,23 @@
 <template>
   <div class="diary-card" @click="handleCardClick">
     <div class="media-container">
+      <template v-if="diary.images && diary.images.length > 0">
+        <img 
+          v-for="(img, index) in diary.images" 
+          :key="index"
+          :src="img.imageUrl"
+          class="card-image"
+          loading="lazy"
+          @click="handlePreview(index)"
+          @error="handleImageError"
+        >
+      </template>
       <img 
-        v-for="(img, index) in diary.images" 
-        :key="index"
-        :src="img"
+        v-else
+        :src="defaultImage"
         class="card-image"
         loading="lazy"
-        @click="handlePreview(index)"
+        @error="handleImageError"
       >
       <video 
         v-if="diary.video"
@@ -27,16 +37,16 @@
     <div class="card-content">
       <h3 class="title">{{ diary.title }}</h3>
       <div class="meta">
-        <user-avatar :name="diary.author.name" :src="diary.author.avatar"/>
+        <user-avatar :name="diary.author.username" :src="diary.author.avatar"/>
         <div class="info">
-          <p class="username">{{ diary.author.name }}</p>
+          <p class="username">{{ diary.author.username }}</p>
           <p class="date">{{ formatDate(diary.createdAt) }}</p>
         </div>
       </div>
       <p class="content">{{ diary.content }}</p>
       <div class="action-bar">
         <like-button :count="diary.likes" @click="handleLike"/>
-        <comment-button :count="diary.comments.length" @click="openComment"/>
+        <comment-button :count="diary.comments_count" @click="openComment"/>
         <share-button @click="handleShare"/>
       </div>
     </div>
@@ -51,6 +61,9 @@ import LikeButton from '@/components/common/LikeButton.vue'
 import CommentButton from '@/components/common/CommentButton.vue'
 import ShareButton from '@/components/common/ShareButton.vue'
 import { useRouter } from 'vue-router'
+import { onMounted } from 'vue'
+
+const defaultImage = '/public/images/diaries/default.jpg'
 
 const router = useRouter()
 const forbiddenSelectors = ['.action-bar', '.view-count', 'button', 'a','svg', 'path']
@@ -73,6 +86,8 @@ const props = defineProps({
     type: Object,
     required: true,
     validator(value) {
+      console.log('Diary data:', value)
+      console.log('Diary images:', value.images)
       return !!value.id // 必须有id字段
     }
   }
@@ -121,6 +136,15 @@ const openComment = () => {
 const handlePreview = (index) => {
   // 处理图片预览逻辑
 }
+
+const handleImageError = (e) => {
+  e.target.src = defaultImage
+}
+
+onMounted(() => {
+  console.log('DiaryCard mounted')
+  console.log('Default image path:', defaultImage)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -184,11 +208,11 @@ const handlePreview = (index) => {
 }
 
 .card-content {
-  padding: 16px;
+  padding: 20px;
   
   .title {
     font-size: 18px;
-    margin: 0 0 12px;
+    margin: 0 0 16px;
     color: #1d1d1f;
   }
   
@@ -196,7 +220,7 @@ const handlePreview = (index) => {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     p{
       margin: 5px;
     }
@@ -210,18 +234,22 @@ const handlePreview = (index) => {
     line-height: 1.6;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    line-clamp: 3;
+    -webkit-line-clamp: 2;
     overflow: hidden;
+    margin-bottom: 20px;
+    text-overflow: ellipsis;
+    max-height: 3.2em; /* 2行文字的高度 */
+    word-break: break-all;
   }
 }
 
 .action-bar {
   display: flex;
   gap: 24px;
-  margin-top: 16px;
-  padding-top: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid #eee;
-  position: relative; /* 创建新的堆叠上下文 */
-  z-index: 1; /* 保证按钮在点击区域之上 */
+  position: relative;
+  z-index: 1;
 }
 </style>

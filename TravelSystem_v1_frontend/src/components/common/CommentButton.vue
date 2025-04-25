@@ -1,12 +1,13 @@
 <template>
   <button class="comment-button" @click="handleClick">
-    <i class="iconfont icon-comment"></i>
+    <el-icon><ChatDotRound /></el-icon>
     <span v-if="count !== undefined">{{ count }}</span>
   </button>
 </template>
 
 <script setup>
 import { defineProps, defineEmits } from 'vue'
+import { ChatDotRound } from '@element-plus/icons-vue'
 
 const props = defineProps({
   count: {
@@ -39,7 +40,7 @@ const handleClick = () => {
   color: #006aff;
 }
 
-.icon-comment {
+.el-icon {
   font-size: 16px;
 }
 </style> 

@@ -1,13 +1,22 @@
 <template>
   <div class="diary-detail" v-if="diary">
     <div class="media-container">
+      <template v-if="diary.images && diary.images.length > 0">
+        <img 
+          v-for="(img, index) in diary.images" 
+          :key="index"
+          :src="img.imageUrl"
+          class="detail-image"
+          loading="lazy"
+          @click="handlePreview(index)"
+          @error="handleImageError"
+        >
+      </template>
       <img 
-        v-for="(img, index) in diary.images" 
-        :key="index"
-        :src="img"
+        v-else
+        src="./images/diaries/default.jpg"
         class="detail-image"
         loading="lazy"
-        @click="handlePreview(index)"
       >
       <video 
         v-if="diary.video"
@@ -20,9 +29,9 @@
     <div class="content">
       <h1 class="title">{{ diary.title }}</h1>
       <div class="meta">
-        <user-avatar :name="diary.author.name" :src="diary.author.avatar"/>
+        <user-avatar :name="diary.author.username" :src="diary.author.avatar"/>
         <div class="info">
-          <p class="username">{{ diary.author.name }}</p>
+          <p class="username">{{ diary.author.username }}</p>
           <p class="date">{{ formatDate(diary.createdAt) }}</p>
         </div>
       </div>
@@ -84,6 +93,8 @@ onMounted(async () => {
   } catch (error) {
     console.error('获取日记失败:', error)
   }
+  console.log('DiaryDetail mounted')
+  console.log('Default image path:', './images/diaries/default.jpg')
 })
 
 const handleLike = async () => {
@@ -108,6 +119,13 @@ const scrollToComments = () => {
 
 const handlePreview = (index) => {
   // 处理图片预览逻辑
+}
+
+const handleImageError = (e) => {
+  console.error('图片加载失败:', e.target.src)
+  console.log('当前图片路径:', e.target.src)
+  console.log('尝试加载默认图片')
+  e.target.src = './images/diaries/default.jpg'
 }
 </script>
 

@@ -33,16 +33,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/spots").permitAll()
-                .requestMatchers("/api/spots/search").permitAll()
-                .requestMatchers("/api/spots/city/**").permitAll()
-                .requestMatchers("/api/spots/type/**").permitAll()
-                .requestMatchers("/api/spots/*").permitAll()
-                .requestMatchers("/api/spots/*/increment-popularity").authenticated()
-                .requestMatchers("/api/spots/*/favorite").authenticated()
-                .requestMatchers("/api/spots/*/toggle-favorite").authenticated()
-                .requestMatchers("/api/spots/favorites").authenticated()
+                .requestMatchers("/api/**").permitAll()
+                .requestMatchers("/static/**", "/public/**", "/resources/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

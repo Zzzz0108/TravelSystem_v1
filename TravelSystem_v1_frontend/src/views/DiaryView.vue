@@ -36,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diaryStore'
 import SearchBar from '@/components/common/SearchBar.vue'
@@ -50,8 +50,23 @@ const searchQuery = ref('')
 const selectedTags = ref([])
 const popularTags = ['旅行攻略', '美食探店', '摄影圣地', '自驾游', '亲子旅行']
 
+// 初始化数据
+const initData = async () => {
+  try {
+    await diaryStore.fetchLatestDiaries()
+  } catch (error) {
+    console.error('获取日记数据失败:', error)
+  }
+}
+
+// 组件挂载时获取数据
+onMounted(() => {
+  initData()
+})
+
 const handleSearch = (query) => {
   searchQuery.value = query;
+  diaryStore.searchDiaries(query)
 };
 
 // 数据过滤
@@ -125,42 +140,33 @@ const openEditor = () => {
 }
 
 .masonry-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
   margin-top: 40px;
   padding-bottom: 80px;
-}
-.masonry-container {
-  column-count: 3; // 默认3列
-  column-gap: 24px; // 列间距
-  margin-top: 40px;
 
   .masonry-item {
-  background: #fff;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    width: 100%;
   }
 }
-}
+
 /* 响应式适配 */
 @media (max-width: 1200px) {
   .masonry-container {
-    column-count: 3;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 992px) {
+@media (max-width: 900px) {
   .masonry-container {
-    column-count: 2;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 600px) {
   .masonry-container {
-    column-count: 1;
+    grid-template-columns: 1fr;
   }
 }
 </style>
