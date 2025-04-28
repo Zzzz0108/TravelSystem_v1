@@ -24,6 +24,9 @@ public class Diary {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    @Column(length = 255)
+    private String destination;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnoreProperties({"password", "favoriteSpots", "diaries", "diaryLikes", "comments", "email"})
@@ -32,10 +35,6 @@ public class Diary {
     @OneToMany(mappedBy = "diary", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
     @JsonIgnoreProperties({"diary"})
     private List<DiaryImage> images = new ArrayList<>();
-
-    @OneToMany(mappedBy = "diary", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
-    @JsonIgnoreProperties({"diary"})
-    private List<DiaryTag> tags = new ArrayList<>();
 
     @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"diary", "user"})

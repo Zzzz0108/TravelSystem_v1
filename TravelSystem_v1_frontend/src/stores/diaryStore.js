@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import * as diaryApi from '@/api/diaryApi'
 import * as commentApi from '@/api/commentApi'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 export const useDiaryStore = defineStore('diary', () => {
   const diaries = ref([])
@@ -142,18 +143,46 @@ export const useDiaryStore = defineStore('diary', () => {
   }
 
   // 搜索日记
-  const searchDiaries = async (keyword, params) => {
+  const searchDiaries = async (keyword, searchMode = 'destination') => {
     try {
-      loading.value = true
-      const response = await diaryApi.searchDiaries(keyword, params)
-      diaries.value = response.content
-    } catch (err) {
-      error.value = err.message
-      ElMessage.error('搜索日记失败')
-    } finally {
-      loading.value = false
+      if (!keyword) {
+        // 如果没有搜索内容，获取所有日记
+        await fetchPopularDiaries();
+        return;
+      }
+
+      let url = '/api/diaries/search';
+      let params = {};
+      
+      if (searchMode === 'destination') {
+        url = '/api/diaries/search/destination';
+        params = { destination: keyword };
+      } else if (searchMode === 'title') {
+        url = '/api/diaries/search';
+        params = { title: keyword };
+      } else if (searchMode === 'content') {
+        url = '/api/diaries/search/content';
+        params = { content: keyword };
+      }
+      
+      console.log('Search URL:', url);
+      console.log('Search Params:', params);
+      
+      const response = await axios.get(url, { params });
+      console.log('Search Response:', response.data);
+      
+      if (response.data && response.data.content) {
+        diaries.value = response.data.content;
+        console.log('Updated diaries:', diaries.value);
+      } else {
+        console.warn('No content in response');
+        diaries.value = [];
+      }
+    } catch (error) {
+      console.error('搜索日记失败:', error);
+      ElMessage.error('搜索失败，请稍后重试');
     }
-  }
+  };
 
   // 按标签搜索日记
   const getDiariesByTag = async (tag, params) => {

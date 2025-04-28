@@ -3,10 +3,18 @@
 
     <!-- 搜索和过滤 -->
     <div class="diary-header">
-      <search-bar 
-        placeholder="搜索旅行日记..."
-        @search="handleSearch"
-      />
+      <div class="search-container">
+        <el-select v-model="searchMode" placeholder="搜索模式" class="search-mode">
+          <el-option label="目的地" value="destination"></el-option>
+          <el-option label="标题" value="title"></el-option>
+          <el-option label="文章内容" value="content"></el-option>
+        </el-select>
+        <search-bar 
+          v-model="searchQuery"
+          placeholder="搜索旅行日记..."
+          @search="handleSearch"
+        />
+      </div>
       <div class="filter-tags">
         <span 
           v-for="tag in popularTags"
@@ -48,6 +56,7 @@ import { ElMessage } from 'element-plus'
 const router = useRouter()
 const diaryStore = useDiaryStore()
 const searchQuery = ref('')
+const searchMode = ref('destination') // 默认搜索模式为目的地
 const selectedTags = ref([])
 const popularTags = ['旅行攻略', '美食探店', '摄影圣地', '自驾游', '亲子旅行']
 
@@ -67,18 +76,28 @@ onMounted(() => {
 
 const handleSearch = (query) => {
   searchQuery.value = query;
-  diaryStore.searchDiaries(query)
+  if (!query) {
+    // 如果没有搜索内容，重新获取所有日记
+    initData();
+  } else {
+    // 有搜索内容时才进行搜索
+    diaryStore.searchDiaries(query, searchMode.value);
+  }
 };
 
 // 数据过滤
 const filteredDiaries = computed(() => {
-  return diaryStore.diaries.filter(diary => {
-    const matchSearch = diary.content.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-                       diary.title.toLowerCase().includes(searchQuery.value.toLowerCase())
-    const matchTags = selectedTags.value.length === 0 || 
-                     selectedTags.value.some(tag => diary.tags.includes(tag))
-    return matchSearch && matchTags
-  })
+  console.log('Current diaries:', diaryStore.diaries);
+  console.log('Search query:', searchQuery.value);
+  console.log('Search mode:', searchMode.value);
+  
+  // 如果后端已经返回了搜索结果，直接使用
+  if (searchQuery.value) {
+    return diaryStore.diaries;
+  }
+  
+  // 如果没有搜索内容，显示所有日记
+  return diaryStore.diaries;
 })
 
 const toggleTag = (tag) => {
@@ -113,6 +132,17 @@ const openEditor = () => {
   backdrop-filter: blur(10px);
   z-index: 100;
   padding: 20px 0;
+}
+
+.search-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.search-mode {
+  width: 120px;
 }
 
 .filter-tags {

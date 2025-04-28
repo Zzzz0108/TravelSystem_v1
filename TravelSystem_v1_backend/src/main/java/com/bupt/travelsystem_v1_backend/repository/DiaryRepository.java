@@ -14,16 +14,12 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     // 根据用户ID查找日记
     Page<Diary> findByAuthorId(Long userId, Pageable pageable);
     
-    // 根据标签查找日记
-    @Query("SELECT d FROM Diary d JOIN d.tags t WHERE t.tag = :tag")
-    Page<Diary> findByTagsName(@Param("tag") String tag, Pageable pageable);
+    // 精确搜索日记（标题）
+    @Query("SELECT d FROM Diary d WHERE d.title = :title")
+    Page<Diary> findByTitle(@Param("title") String title, Pageable pageable);
     
-    // 搜索日记（标题）
+    // 模糊搜索日记（标题）
     Page<Diary> findByTitleContaining(String keyword, Pageable pageable);
-    
-    // 搜索日记（标题和标签）
-    @Query("SELECT d FROM Diary d JOIN d.tags t WHERE d.title LIKE %:keyword% AND t.tag = :tag")
-    Page<Diary> findByTitleContainingAndTagsName(@Param("keyword") String keyword, @Param("tag") String tag, Pageable pageable);
     
     // 获取热门日记（按点赞数排序）
     Page<Diary> findAllByOrderByLikesDesc(Pageable pageable);
@@ -39,9 +35,6 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     @EntityGraph(attributePaths = {"author"})
     Optional<Diary> findById(Long id);
     
-    // 根据标题精确查询
-    Optional<Diary> findByTitle(String title);
-    
     // 根据内容搜索
     Page<Diary> findByContentContaining(String keyword, Pageable pageable);
     
@@ -49,6 +42,18 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     Page<Diary> findAllByOrderByPopularityScoreDesc(Pageable pageable);
     
     // 全文检索
-    @Query("SELECT d FROM Diary d WHERE d.content LIKE %:keyword% OR d.title LIKE %:keyword%")
+    @Query("SELECT d FROM Diary d WHERE d.content LIKE %:keyword%")
     Page<Diary> fullTextSearch(@Param("keyword") String keyword, Pageable pageable);
+    
+    // 根据目的地搜索
+    @Query("SELECT d FROM Diary d WHERE d.destination = :destination")
+    Page<Diary> findByDestination(@Param("destination") String destination, Pageable pageable);
+    
+    // 获取所有带有目的地的日记
+    @Query("SELECT d FROM Diary d WHERE d.destination IS NOT NULL")
+    List<Diary> findAllWithDestination();
+    
+    // 获取所有目的地列表
+    @Query("SELECT DISTINCT d.destination FROM Diary d WHERE d.destination IS NOT NULL")
+    List<String> findAllDestinations();
 } 

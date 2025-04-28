@@ -104,16 +104,14 @@ public class DiaryServiceImpl implements DiaryService {
     }
 
     @Override
-    public Page<Diary> searchDiaries(String keyword, String tag, Pageable pageable) {
-        if (tag != null && !tag.isEmpty()) {
-            return diaryRepository.findByTitleContainingAndTagsName(keyword, tag, pageable);
+    public Page<Diary> searchDiaries(String keyword, Pageable pageable) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return diaryRepository.findAll(pageable);
         }
-        return diaryRepository.findByTitleContaining(keyword, pageable);
-    }
-
-    @Override
-    public Page<Diary> getDiariesByTag(String tag, Pageable pageable) {
-        return diaryRepository.findByTagsName(tag, pageable);
+        System.out.println("Searching for keyword: " + keyword);
+        Page<Diary> result = diaryRepository.findByTitleContaining(keyword, pageable);
+        System.out.println("Found " + result.getTotalElements() + " results");
+        return result;
     }
 
     @Override
@@ -237,22 +235,45 @@ public class DiaryServiceImpl implements DiaryService {
 
     @Override
     public Page<Diary> fullTextSearch(String keyword, Pageable pageable) {
-        return diaryRepository.findByContentContaining(keyword, pageable);
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return diaryRepository.findAll(pageable);
+        }
+        System.out.println("Searching content for keyword: " + keyword);
+        Page<Diary> result = diaryRepository.findByContentContaining(keyword, pageable);
+        System.out.println("Found " + result.getTotalElements() + " results");
+        return result;
     }
 
     @Override
     public Diary getDiaryByExactTitle(String title) {
-        return diaryRepository.findByTitle(title)
-            .orElseThrow(() -> new EntityNotFoundException("未找到指定标题的日记"));
+        Page<Diary> result = diaryRepository.findByTitle(title, Pageable.unpaged());
+        if (result.getTotalElements() == 0) {
+            throw new EntityNotFoundException("未找到指定标题的日记");
+        }
+        return result.getContent().get(0);
     }
 
     @Override
     public Page<Diary> searchDiariesByDestination(String destination, Pageable pageable) {
-        return diaryRepository.findByContentContaining(destination, pageable);
+        if (destination == null || destination.trim().isEmpty()) {
+            return diaryRepository.findAll(pageable);
+        }
+        return diaryRepository.findByDestination(destination, pageable);
     }
 
     @Override
     public Page<Diary> getPopularDiariesByScore(Pageable pageable) {
         return diaryRepository.findAllByOrderByPopularityScoreDesc(pageable);
+    }
+
+    @Override
+    public Page<Diary> searchDiariesByExactTitle(String title, Pageable pageable) {
+        if (title == null || title.trim().isEmpty()) {
+            return diaryRepository.findAll(pageable);
+        }
+        System.out.println("Searching for exact title: " + title);
+        Page<Diary> result = diaryRepository.findByTitle(title, pageable);
+        System.out.println("Found " + result.getTotalElements() + " results");
+        return result;
     }
 } 

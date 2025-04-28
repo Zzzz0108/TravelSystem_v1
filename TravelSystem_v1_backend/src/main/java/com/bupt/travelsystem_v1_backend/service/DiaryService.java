@@ -28,10 +28,10 @@ public interface DiaryService {
     Page<Diary> getLatestDiaries(Pageable pageable);
     
     // 搜索日记
-    Page<Diary> searchDiaries(String keyword, String tag, Pageable pageable);
+    Page<Diary> searchDiaries(String keyword, Pageable pageable);
     
-    // 按标签搜索日记
-    Page<Diary> getDiariesByTag(String tag, Pageable pageable);
+    // 精确搜索日记
+    Page<Diary> searchDiariesByExactTitle(String title, Pageable pageable);
     
     // 点赞/取消点赞
     Diary toggleLike(Long diaryId, Long userId);

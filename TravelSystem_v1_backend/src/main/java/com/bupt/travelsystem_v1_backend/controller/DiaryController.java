@@ -82,14 +82,21 @@ public class DiaryController {
     @GetMapping("/search")
     public ResponseEntity<Page<Diary>> searchDiaries(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String tag,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false, defaultValue = "false") boolean exact,
             Pageable pageable) {
-        return ResponseEntity.ok(diaryService.searchDiaries(keyword, tag, pageable));
+        if (title != null && !title.trim().isEmpty()) {
+            if (exact) {
+                return ResponseEntity.ok(diaryService.searchDiariesByExactTitle(title, pageable));
+            }
+            return ResponseEntity.ok(diaryService.searchDiaries(title, pageable));
+        }
+        return ResponseEntity.ok(diaryService.searchDiaries(keyword, pageable));
     }
 
     @GetMapping("/tag/{tag}")
     public ResponseEntity<Page<Diary>> getDiariesByTag(@PathVariable String tag, Pageable pageable) {
-        return ResponseEntity.ok(diaryService.getDiariesByTag(tag, pageable));
+        throw new UnsupportedOperationException("标签功能已移除");
     }
 
     @PostMapping("/{id}/rate")
@@ -98,7 +105,7 @@ public class DiaryController {
             @RequestParam Integer rating,
             Authentication authentication) {
         try {
-            Long userId = userService.getUserIdByUsername(authentication.getName());
+            Long userId = Long.parseLong(authentication.getName());
             return ResponseEntity.ok(diaryService.rateDiary(id, userId, rating));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
@@ -107,9 +114,15 @@ public class DiaryController {
 
     @GetMapping("/search/destination")
     public ResponseEntity<Page<Diary>> searchByDestination(
-            @RequestParam String destination,
+            @RequestParam(required = false) String destination,
             Pageable pageable) {
-        return ResponseEntity.ok(diaryService.searchDiariesByDestination(destination, pageable));
+        System.out.println("=== 收到目的地搜索请求 ===");
+        System.out.println("目的地: " + destination);
+        System.out.println("分页信息: " + pageable);
+        
+        Page<Diary> result = diaryService.searchDiariesByDestination(destination, pageable);
+        System.out.println("返回 " + result.getTotalElements() + " 条日记记录");
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/search/title")
@@ -121,7 +134,13 @@ public class DiaryController {
     public ResponseEntity<Page<Diary>> fullTextSearch(
             @RequestParam String keyword,
             Pageable pageable) {
-        return ResponseEntity.ok(diaryService.fullTextSearch(keyword, pageable));
+        System.out.println("=== 收到全文搜索请求 ===");
+        System.out.println("关键词: " + keyword);
+        System.out.println("分页信息: " + pageable);
+        
+        Page<Diary> result = diaryService.fullTextSearch(keyword, pageable);
+        System.out.println("返回 " + result.getTotalElements() + " 条日记记录");
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/{id}/compress")
@@ -136,5 +155,18 @@ public class DiaryController {
         Diary diary = diaryService.getDiaryById(id);
         String decompressedContent = diaryService.decompressDiaryContent(diary.getContent());
         return ResponseEntity.ok(decompressedContent);
+    }
+
+    @GetMapping("/search/content")
+    public ResponseEntity<Page<Diary>> searchByContent(
+            @RequestParam String content,
+            Pageable pageable) {
+        System.out.println("=== 收到内容搜索请求 ===");
+        System.out.println("内容关键词: " + content);
+        System.out.println("分页信息: " + pageable);
+        
+        Page<Diary> result = diaryService.fullTextSearch(content, pageable);
+        System.out.println("返回 " + result.getTotalElements() + " 条日记记录");
+        return ResponseEntity.ok(result);
     }
 } 
