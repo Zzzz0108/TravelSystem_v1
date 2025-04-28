@@ -70,4 +70,49 @@ export const toggleLike = async (id) => {
 export const getUserDiaries = async (userId, params) => {
   const response = await api.get(`/diaries/user/${userId}`, { params });
   return response.data;
+};
+
+// 评分日记
+export const rateDiary = async (id, rating) => {
+  const response = await api.post(`/diaries/${id}/rate`, null, { 
+    params: { rating },
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    }
+  });
+  return response.data;
+};
+
+// 根据目的地搜索日记
+export const searchByDestination = async (destination, params) => {
+  const response = await api.get('/diaries/search/destination', { 
+    params: { destination, ...params }
+  });
+  return response.data;
+};
+
+// 精确查询日记标题
+export const searchByExactTitle = async (title) => {
+  const response = await api.get('/diaries/search/title', { params: { title } });
+  return response.data;
+};
+
+// 全文检索
+export const fullTextSearch = async (keyword, params) => {
+  const response = await api.get('/diaries/search/fulltext', { 
+    params: { keyword, ...params }
+  });
+  return response.data;
+};
+
+// 压缩日记内容
+export const compressDiaryContent = async (id) => {
+  const response = await api.post(`/diaries/${id}/compress`);
+  return response.data;
+};
+
+// 解压日记内容
+export const decompressDiaryContent = async (id) => {
+  const response = await api.post(`/diaries/${id}/decompress`);
+  return response.data;
 }; 

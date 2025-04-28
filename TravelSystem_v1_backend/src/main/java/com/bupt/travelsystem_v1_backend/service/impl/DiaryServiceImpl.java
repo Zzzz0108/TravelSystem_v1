@@ -3,9 +3,11 @@ package com.bupt.travelsystem_v1_backend.service.impl;
 import com.bupt.travelsystem_v1_backend.entity.Diary;
 import com.bupt.travelsystem_v1_backend.entity.User;
 import com.bupt.travelsystem_v1_backend.entity.DiaryLike;
+import com.bupt.travelsystem_v1_backend.entity.DiaryRating;
 import com.bupt.travelsystem_v1_backend.repository.DiaryRepository;
 import com.bupt.travelsystem_v1_backend.repository.UserRepository;
 import com.bupt.travelsystem_v1_backend.repository.DiaryLikeRepository;
+import com.bupt.travelsystem_v1_backend.repository.DiaryRatingRepository;
 import com.bupt.travelsystem_v1_backend.service.DiaryService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Base64;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class DiaryServiceImpl implements DiaryService {
@@ -25,6 +34,9 @@ public class DiaryServiceImpl implements DiaryService {
 
     @Autowired
     private DiaryLikeRepository diaryLikeRepository;
+
+    @Autowired
+    private DiaryRatingRepository diaryRatingRepository;
 
     @Override
     @Transactional
@@ -157,5 +169,90 @@ public class DiaryServiceImpl implements DiaryService {
         // 更新日记的点赞数
         diary.setLikes(diary.getLikes() + 1);
         diaryRepository.save(diary);
+    }
+
+    @Override
+    @Transactional
+    public Diary rateDiary(Long diaryId, Long userId, Integer rating) {
+        Diary diary = diaryRepository.findById(diaryId)
+            .orElseThrow(() -> new EntityNotFoundException("日记不存在"));
+            
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new EntityNotFoundException("用户不存在"));
+            
+        DiaryRating diaryRating = new DiaryRating(diary, user, rating);
+        diaryRatingRepository.save(diaryRating);
+        
+        // 更新平均评分
+        Double averageRating = diaryRatingRepository.getAverageRatingByDiary(diary);
+        Long ratingCount = diaryRatingRepository.getRatingCountByDiary(diary);
+        
+        diary.setAverageRating(averageRating);
+        diary.setRatingCount(ratingCount.intValue());
+        
+        // 更新热度分数
+        updatePopularityScore(diaryId);
+        
+        return diaryRepository.save(diary);
+    }
+
+    @Override
+    @Transactional
+    public void updatePopularityScore(Long diaryId) {
+        Diary diary = diaryRepository.findById(diaryId)
+            .orElseThrow(() -> new EntityNotFoundException("日记不存在"));
+            
+        // 计算热度分数：浏览量 * 0.4 + 平均评分 * 0.6
+        double popularityScore = diary.getViews() * 0.4 + diary.getAverageRating() * 0.6;
+        diary.setPopularityScore(popularityScore);
+        
+        diaryRepository.save(diary);
+    }
+
+    @Override
+    public String compressDiaryContent(String content) {
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            GZIPOutputStream gzip = new GZIPOutputStream(out);
+            gzip.write(content.getBytes(StandardCharsets.UTF_8));
+            gzip.close();
+            return Base64.getEncoder().encodeToString(out.toByteArray());
+        } catch (IOException e) {
+            throw new RuntimeException("压缩日记内容失败", e);
+        }
+    }
+
+    @Override
+    public String decompressDiaryContent(String compressedContent) {
+        try {
+            byte[] compressed = Base64.getDecoder().decode(compressedContent);
+            ByteArrayInputStream in = new ByteArrayInputStream(compressed);
+            GZIPInputStream gzip = new GZIPInputStream(in);
+            byte[] decompressed = gzip.readAllBytes();
+            return new String(decompressed, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException("解压日记内容失败", e);
+        }
+    }
+
+    @Override
+    public Page<Diary> fullTextSearch(String keyword, Pageable pageable) {
+        return diaryRepository.findByContentContaining(keyword, pageable);
+    }
+
+    @Override
+    public Diary getDiaryByExactTitle(String title) {
+        return diaryRepository.findByTitle(title)
+            .orElseThrow(() -> new EntityNotFoundException("未找到指定标题的日记"));
+    }
+
+    @Override
+    public Page<Diary> searchDiariesByDestination(String destination, Pageable pageable) {
+        return diaryRepository.findByContentContaining(destination, pageable);
+    }
+
+    @Override
+    public Page<Diary> getPopularDiariesByScore(Pageable pageable) {
+        return diaryRepository.findAllByOrderByPopularityScoreDesc(pageable);
     }
 } 

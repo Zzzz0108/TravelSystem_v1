@@ -45,6 +45,14 @@ public class Diary {
     @JsonIgnoreProperties({"diary", "author"})
     private List<Comment> comments = new ArrayList<>();
 
+    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"diary", "user"})
+    private List<DiaryRating> ratings = new ArrayList<>();
+
+    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"diary"})
+    private List<DiarySpot> spots = new ArrayList<>();
+
     @Column(nullable = false)
     private Integer views = 0;
 
@@ -53,6 +61,15 @@ public class Diary {
 
     @Column(nullable = false)
     private Integer commentsCount = 0;
+
+    @Column(nullable = false)
+    private Double averageRating = 0.0;
+
+    @Column(nullable = false)
+    private Integer ratingCount = 0;
+
+    @Column(nullable = false)
+    private Double popularityScore = 0.0;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

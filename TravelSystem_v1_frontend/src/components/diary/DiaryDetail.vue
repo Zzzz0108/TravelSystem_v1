@@ -43,6 +43,15 @@
       <div class="action-bar">
         <like-button :count="diaryStore.currentDiary.likes || 0" @click="handleLike"/>
         <comment-button :count="diaryStore.currentDiary.comments?.length || 0" @click="scrollToComments"/>
+        <el-rate
+          v-model="currentRating"
+          :max="5"
+          :disabled="!userStore.user"
+          show-score
+          text-color="#ff9900"
+          score-template="{value} 分"
+          @change="handleRating"
+        />
         <share-button @click="handleShare"/>
       </div>
       
@@ -121,7 +130,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { format } from 'date-fns'
 import { useDiaryStore } from '@/stores/diaryStore'
 import { useUserStore } from '@/stores/userStore'
@@ -133,10 +142,12 @@ import CommentButton from '@/components/common/CommentButton.vue'
 import ShareButton from '@/components/common/ShareButton.vue'
 
 const route = useRoute()
+const router = useRouter()
 const diaryStore = useDiaryStore()
 const userStore = useUserStore()
 const newComment = ref('')
 const loading = ref(false)
+const currentRating = ref(0)
 
 const formatDate = (dateString) => {
   try {
@@ -233,6 +244,42 @@ const submitComment = async () => {
     loading.value = false;
   }
 };
+
+const handleRating = async (rating) => {
+  if (!userStore.user) {
+    ElMessage.warning('请先登录后再评分')
+    return
+  }
+  
+  if (!userStore.isLogin) {
+    ElMessage.warning('登录已过期，请重新登录')
+    router.push('/login')
+    return
+  }
+
+  try {
+    loading.value = true
+    const updatedDiary = await diaryStore.rateDiary(diaryStore.currentDiary.id, rating)
+    if (updatedDiary) {
+      diaryStore.currentDiary = updatedDiary
+      ElMessage.success('评分成功')
+    } else {
+      ElMessage.error('评分失败，请稍后重试')
+    }
+  } catch (error) {
+    console.error('评分失败:', error)
+    if (error.response?.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      router.push('/login')
+    } else if (error.response?.status === 403) {
+      ElMessage.error('没有权限进行评分')
+    } else {
+      ElMessage.error('评分失败，请稍后重试')
+    }
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style lang="scss" scoped>

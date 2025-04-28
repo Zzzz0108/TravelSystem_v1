@@ -25,7 +25,7 @@ export const useDiaryStore = defineStore('diary', () => {
     }
   }
 
-  // 获取热门日记
+  // 获取日记列表（使用后端的热度+评分排序）
   const fetchPopularDiaries = async (params) => {
     try {
       loading.value = true
@@ -33,7 +33,21 @@ export const useDiaryStore = defineStore('diary', () => {
       diaries.value = response.content
     } catch (err) {
       error.value = err.message
-      ElMessage.error('获取热门日记失败')
+      ElMessage.error('获取日记列表失败')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 获取按评分排序的日记
+  const fetchPopularDiariesByScore = async (params) => {
+    try {
+      loading.value = true
+      const response = await diaryApi.getPopularDiaries(params)
+      diaries.value = response.content
+    } catch (err) {
+      error.value = err.message
+      ElMessage.error('获取评分日记失败')
     } finally {
       loading.value = false
     }
@@ -251,6 +265,105 @@ export const useDiaryStore = defineStore('diary', () => {
     }
   }
 
+  // 评分日记
+  const rateDiary = async (id, rating) => {
+    try {
+      loading.value = true
+      const updatedDiary = await diaryApi.rateDiary(id, rating)
+      if (!updatedDiary) {
+        throw new Error('评分失败')
+      }
+      
+      const index = diaries.value.findIndex(d => d.id === id)
+      if (index !== -1) {
+        diaries.value[index] = updatedDiary
+      }
+      if (currentDiary.value?.id === id) {
+        currentDiary.value = updatedDiary
+      }
+      return updatedDiary
+    } catch (err) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 根据目的地搜索日记
+  const searchByDestination = async (destination, params) => {
+    try {
+      loading.value = true
+      const response = await diaryApi.searchByDestination(destination, params)
+      diaries.value = response.content
+    } catch (err) {
+      error.value = err.message
+      ElMessage.error('搜索失败')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 精确查询日记标题
+  const searchByExactTitle = async (title) => {
+    try {
+      loading.value = true
+      const diary = await diaryApi.searchByExactTitle(title)
+      currentDiary.value = diary
+      return diary
+    } catch (err) {
+      error.value = err.message
+      ElMessage.error('查询失败')
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 全文检索
+  const fullTextSearch = async (keyword, params) => {
+    try {
+      loading.value = true
+      const response = await diaryApi.fullTextSearch(keyword, params)
+      diaries.value = response.content
+    } catch (err) {
+      error.value = err.message
+      ElMessage.error('搜索失败')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 压缩日记内容
+  const compressDiaryContent = async (id) => {
+    try {
+      loading.value = true
+      const compressedContent = await diaryApi.compressDiaryContent(id)
+      return compressedContent
+    } catch (err) {
+      error.value = err.message
+      ElMessage.error('压缩失败')
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 解压日记内容
+  const decompressDiaryContent = async (id) => {
+    try {
+      loading.value = true
+      const decompressedContent = await diaryApi.decompressDiaryContent(id)
+      return decompressedContent
+    } catch (err) {
+      error.value = err.message
+      ElMessage.error('解压失败')
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     diaries,
     currentDiary,
@@ -269,7 +382,13 @@ export const useDiaryStore = defineStore('diary', () => {
     toggleLike,
     fetchComments,
     createComment,
-    deleteComment
+    deleteComment,
+    rateDiary,
+    searchByDestination,
+    searchByExactTitle,
+    fullTextSearch,
+    compressDiaryContent,
+    decompressDiaryContent
   }
 })
 

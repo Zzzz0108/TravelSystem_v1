@@ -41,4 +41,28 @@ public interface DiaryService {
     
     // 点赞日记
     void likeDiary(Long diaryId, Long userId);
+    
+    // 评分日记
+    Diary rateDiary(Long diaryId, Long userId, Integer rating);
+    
+    // 获取热门日记（基于热度和评分）
+    Page<Diary> getPopularDiariesByScore(Pageable pageable);
+    
+    // 根据目的地搜索日记
+    Page<Diary> searchDiariesByDestination(String destination, Pageable pageable);
+    
+    // 精确查询日记名称
+    Diary getDiaryByExactTitle(String title);
+    
+    // 全文检索日记内容
+    Page<Diary> fullTextSearch(String keyword, Pageable pageable);
+    
+    // 更新日记热度分数
+    void updatePopularityScore(Long diaryId);
+    
+    // 压缩日记内容
+    String compressDiaryContent(String content);
+    
+    // 解压日记内容
+    String decompressDiaryContent(String compressedContent);
 } 

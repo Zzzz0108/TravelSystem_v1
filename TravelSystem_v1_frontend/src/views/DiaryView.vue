@@ -42,6 +42,7 @@ import { useDiaryStore } from '@/stores/diaryStore'
 import SearchBar from '@/components/common/SearchBar.vue'
 import DiaryCard from '@/components/diary/DiaryCard.vue'
 import FloatingActionButton from '@/components/common/FloatingActionButton.vue'
+import { ElMessage } from 'element-plus'
 // DiaryView.vue
 
 const router = useRouter()
@@ -53,7 +54,7 @@ const popularTags = ['旅行攻略', '美食探店', '摄影圣地', '自驾游'
 // 初始化数据
 const initData = async () => {
   try {
-    await diaryStore.fetchLatestDiaries()
+    await diaryStore.fetchPopularDiaries() // 默认使用后端的热度+评分排序
   } catch (error) {
     console.error('获取日记数据失败:', error)
   }

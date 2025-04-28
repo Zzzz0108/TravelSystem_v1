@@ -35,15 +35,14 @@
     </div>
     
     <div class="card-content">
-      <h3 class="title">{{ diary.title }}</h3>
-      <div class="meta">
-        <user-avatar :name="diary.author.username" :src="diary.author.avatar"/>
-        <div class="info">
-          <p class="username">{{ diary.author.username }}</p>
-          <p class="date">{{ formatDate(diary.createdAt) }}</p>
+      <div class="diary-info">
+        <h3 class="title">{{ diary.title }}</h3>
+        <p class="content">{{ diary.content }}</p>
+        <div class="meta">
+          <span class="author">{{ diary.author?.username || '未知用户' }}</span>
+          <span class="date">{{ formatDate(diary.createdAt) }}</span>
         </div>
       </div>
-      <p class="content">{{ diary.content }}</p>
       <div class="action-bar">
         <like-button :count="diary.likes" @click="handleLike"/>
         <comment-button :count="diary.comments_count" @click="openComment"/>

@@ -38,4 +38,17 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     // 使用 EntityGraph 预加载 author 数据
     @EntityGraph(attributePaths = {"author"})
     Optional<Diary> findById(Long id);
+    
+    // 根据标题精确查询
+    Optional<Diary> findByTitle(String title);
+    
+    // 根据内容搜索
+    Page<Diary> findByContentContaining(String keyword, Pageable pageable);
+    
+    // 根据热度分数排序
+    Page<Diary> findAllByOrderByPopularityScoreDesc(Pageable pageable);
+    
+    // 全文检索
+    @Query("SELECT d FROM Diary d WHERE d.content LIKE %:keyword% OR d.title LIKE %:keyword%")
+    Page<Diary> fullTextSearch(@Param("keyword") String keyword, Pageable pageable);
 } 
