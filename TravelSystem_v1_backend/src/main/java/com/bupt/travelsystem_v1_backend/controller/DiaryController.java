@@ -1,13 +1,16 @@
 package com.bupt.travelsystem_v1_backend.controller;
 
 import com.bupt.travelsystem_v1_backend.entity.Diary;
+import com.bupt.travelsystem_v1_backend.entity.User;
 import com.bupt.travelsystem_v1_backend.service.DiaryService;
 import com.bupt.travelsystem_v1_backend.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -105,10 +108,44 @@ public class DiaryController {
             @RequestParam Integer rating,
             Authentication authentication) {
         try {
-            Long userId = Long.parseLong(authentication.getName());
-            return ResponseEntity.ok(diaryService.rateDiary(id, userId, rating));
-        } catch (RuntimeException e) {
+            System.out.println("收到评分请求 - 日记ID: " + id + ", 评分: " + rating);
+            
+            if (rating == null) {
+                System.out.println("评分值为空");
+                return ResponseEntity.badRequest().build();
+            }
+            
+            if (rating < 1 || rating > 5) {
+                System.out.println("评分值无效: " + rating);
+                return ResponseEntity.badRequest().build();
+            }
+            
+            // 获取当前登录用户
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            String username = userDetails.getUsername();
+            System.out.println("当前用户: " + username);
+            
+            // 根据用户名获取用户ID
+            Long userId = userService.getUserIdByUsername(username);
+            System.out.println("用户ID: " + userId);
+            
+            Diary diary = diaryService.rateDiary(id, userId, rating);
+            System.out.println("评分成功 - 日记ID: " + id + ", 新平均分: " + diary.getAverageRating());
+            
+            return ResponseEntity.ok(diary);
+        } catch (IllegalArgumentException e) {
+            System.out.println("参数错误: " + e.getMessage());
             return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException e) {
+            System.out.println("状态错误: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        } catch (EntityNotFoundException e) {
+            System.out.println("实体未找到: " + e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            System.out.println("服务器错误: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

@@ -18,6 +18,8 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
 const emit = defineEmits(['files-selected'])
 const fileInput = ref(null)
 
@@ -30,3 +32,29 @@ const handleFileSelect = (e) => {
   emit('files-selected', files)
 }
 </script>
+
+<style lang="scss" scoped>
+.uploader {
+  button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #f5f5f5;
+    border: 1px dashed #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: #eee;
+    }
+    
+    svg {
+      width: 20px;
+      height: 20px;
+      fill: #666;
+    }
+  }
+}
+</style>

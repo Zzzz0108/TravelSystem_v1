@@ -74,10 +74,15 @@ export const getUserDiaries = async (userId, params) => {
 
 // 评分日记
 export const rateDiary = async (id, rating) => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    throw new Error('未登录');
+  }
+  
   const response = await api.post(`/diaries/${id}/rate`, null, { 
     params: { rating },
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
+      'Authorization': `Bearer ${token}`
     }
   });
   return response.data;

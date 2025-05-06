@@ -1,6 +1,5 @@
 <template>
   <div class="diary-container">
-
     <!-- 搜索和过滤 -->
     <div class="diary-header">
       <div class="search-container">
@@ -15,21 +14,11 @@
           @search="handleSearch"
         />
       </div>
-      <div class="filter-tags">
-        <span 
-          v-for="tag in popularTags"
-          :key="tag"
-          class="tag"
-          :class="{ active: selectedTags.includes(tag) }"
-          @click="toggleTag(tag)"
-        >
-          #{{ tag }}
-        </span>
-      </div>
-      <router-view></router-view>
     </div>
-    <floating-action-button @click="openEditor"/>
-
+    
+    <!-- 路由视图 -->
+    <router-view></router-view>
+    
     <!-- 瀑布流容器 -->
     <div class="masonry-container">
       <div 
@@ -40,6 +29,9 @@
         <diary-card :diary="item"/>
       </div>
     </div>
+    
+    <!-- 浮动按钮 -->
+    <floating-action-button @click="openEditor"/>
   </div>
 </template>
 
@@ -57,8 +49,6 @@ const router = useRouter()
 const diaryStore = useDiaryStore()
 const searchQuery = ref('')
 const searchMode = ref('destination') // 默认搜索模式为目的地
-const selectedTags = ref([])
-const popularTags = ['旅行攻略', '美食探店', '摄影圣地', '自驾游', '亲子旅行']
 
 // 初始化数据
 const initData = async () => {
@@ -100,15 +90,6 @@ const filteredDiaries = computed(() => {
   return diaryStore.diaries;
 })
 
-const toggleTag = (tag) => {
-  const index = selectedTags.value.indexOf(tag)
-  if (index > -1) {
-    selectedTags.value.splice(index, 1)
-  } else {
-    selectedTags.value.push(tag)
-  }
-}
-
 const openDetail = (id) => {
   router.push(`/diary/${id}`)
 }
@@ -120,84 +101,34 @@ const openEditor = () => {
 
 <style lang="scss" scoped>
 .diary-container {
+  padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
 }
 
 .diary-header {
-  position: sticky;
-  top: 60px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  z-index: 100;
-  padding: 20px 0;
-}
-
-.search-container {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.search-mode {
-  width: 120px;
-}
-
-.filter-tags {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-  flex-wrap: wrap;
+  margin-bottom: 20px;
   
-  .tag {
-    padding: 6px 12px;
-    border-radius: 20px;
-    background: #f5f5f7;
-    color: #666;
-    cursor: pointer;
-    transition: all 0.2s ease;
+  .search-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
     
-    &.active {
-      background: #0071e3;
-      color: white;
-    }
-    
-    &:hover {
-      transform: scale(1.05);
+    .search-mode {
+      width: 120px;
     }
   }
 }
 
 .masonry-container {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  margin-top: 40px;
-  padding-bottom: 80px;
-
-  .masonry-item {
-    width: 100%;
-  }
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
 }
 
-/* 响应式适配 */
-@media (max-width: 1200px) {
-  .masonry-container {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .masonry-container {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .masonry-container {
-    grid-template-columns: 1fr;
-  }
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 20px;
 }
 </style>

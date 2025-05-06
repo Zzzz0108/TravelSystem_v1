@@ -62,8 +62,7 @@ const handleClick = async () => {
       spotId: props.spotId,
       timestamp: new Date().toISOString()
     });
-    ElMessage.error('操作失败，请重试');
-    // 不再手动恢复状态，而是重新获取收藏状态
+    // 重新获取收藏状态以确保UI状态正确
     await spotStore.fetchFavoriteSpots()
     const isCurrentlyFavorited = spotStore.favoriteSpots.some(spot => spot.id === props.spotId)
     isFavorited.value = isCurrentlyFavorited

@@ -303,17 +303,29 @@ export const useDiaryStore = defineStore('diary', () => {
         throw new Error('评分失败')
       }
       
+      // 更新日记列表中的日记
       const index = diaries.value.findIndex(d => d.id === id)
       if (index !== -1) {
         diaries.value[index] = updatedDiary
       }
+      
+      // 更新当前日记
       if (currentDiary.value?.id === id) {
         currentDiary.value = updatedDiary
       }
+      
       return updatedDiary
     } catch (err) {
       error.value = err.message
-      throw err
+      if (err.response?.status === 409) {
+        throw new Error('您已经评分过了')
+      } else if (err.response?.status === 400) {
+        throw new Error('评分必须在1-5分之间')
+      } else if (err.response?.status === 404) {
+        throw new Error('日记不存在')
+      } else {
+        throw new Error('评分失败，请稍后重试')
+      }
     } finally {
       loading.value = false
     }

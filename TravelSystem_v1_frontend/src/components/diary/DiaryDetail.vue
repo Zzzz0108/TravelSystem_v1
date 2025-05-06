@@ -147,7 +147,8 @@ const diaryStore = useDiaryStore()
 const userStore = useUserStore()
 const newComment = ref('')
 const loading = ref(false)
-const currentRating = ref(0)
+const currentRating = ref(diaryStore.currentDiary?.averageRating || 0)
+const hasRated = ref(false)
 
 const formatDate = (dateString) => {
   try {
@@ -172,6 +173,14 @@ onMounted(async () => {
     console.log('正在获取日记:', diaryId)
     await diaryStore.fetchDiaryById(diaryId)
     console.log('获取到的日记:', diaryStore.currentDiary)
+    // 初始化评分状态
+    currentRating.value = diaryStore.currentDiary?.averageRating || 0
+    // 检查用户是否已评分
+    if (userStore.user && diaryStore.currentDiary?.ratings) {
+      hasRated.value = diaryStore.currentDiary.ratings.some(
+        rating => rating.user.id === userStore.user.id
+      )
+    }
   } catch (error) {
     console.error('获取日记失败:', error)
   }
@@ -248,6 +257,7 @@ const submitComment = async () => {
 const handleRating = async (rating) => {
   if (!userStore.user) {
     ElMessage.warning('请先登录后再评分')
+    router.push('/login')
     return
   }
   
@@ -257,22 +267,39 @@ const handleRating = async (rating) => {
     return
   }
 
+  if (hasRated.value) {
+    ElMessage.warning('您已经评分过了')
+    return
+  }
+
+  if (rating < 1 || rating > 5) {
+    ElMessage.warning('评分必须在1-5分之间')
+    return
+  }
+
   try {
     loading.value = true
+    console.log('开始评分 - 日记ID:', diaryStore.currentDiary.id, '评分:', rating)
     const updatedDiary = await diaryStore.rateDiary(diaryStore.currentDiary.id, rating)
     if (updatedDiary) {
       diaryStore.currentDiary = updatedDiary
+      hasRated.value = true
       ElMessage.success('评分成功')
-    } else {
-      ElMessage.error('评分失败，请稍后重试')
     }
   } catch (error) {
     console.error('评分失败:', error)
-    if (error.response?.status === 401) {
+    if (error.message === '未登录') {
+      ElMessage.error('请先登录')
+      router.push('/login')
+    } else if (error.response?.status === 401) {
       ElMessage.error('登录已过期，请重新登录')
       router.push('/login')
     } else if (error.response?.status === 403) {
       ElMessage.error('没有权限进行评分')
+    } else if (error.response?.status === 409) {
+      ElMessage.error('您已经评分过了')
+    } else if (error.response?.status === 400) {
+      ElMessage.error('评分值无效，必须在1-5分之间')
     } else {
       ElMessage.error('评分失败，请稍后重试')
     }

@@ -8,23 +8,42 @@
     </div>
     
     <div class="editor-main">
-      <input 
-        v-model="form.title"
-        type="text"
-        placeholder="添加标题..."
-        class="title-input"
-      >
+      <div class="form-group">
+        <label>标题</label>
+        <input 
+          v-model="form.title"
+          type="text"
+          placeholder="添加标题..."
+          class="title-input"
+          :class="{ 'error': !form.title && isSubmitted }"
+        >
+        <span class="error-message" v-if="!form.title && isSubmitted">标题不能为空</span>
+      </div>
       
-      <div class="content-editor">
+      <div class="form-group">
+        <label>目的地</label>
+        <input 
+          v-model="form.destination"
+          type="text"
+          placeholder="添加目的地..."
+          class="destination-input"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label>内容</label>
         <textarea
           v-model="form.content"
           placeholder="分享你的旅行故事..."
+          :class="{ 'error': !form.content && isSubmitted }"
         ></textarea>
-        
-        <!-- 多媒体上传区域 -->
+        <span class="error-message" v-if="!form.content && isSubmitted">内容不能为空</span>
+      </div>
+      
+      <div class="form-group">
+        <label>图片上传</label>
         <file-uploader @files-selected="handleFiles"/>
         
-        <!-- 已上传内容预览 -->
         <div class="media-preview">
           <div 
             v-for="(file, index) in form.media"
@@ -51,11 +70,6 @@
           </div>
         </div>
       </div>
-      
-      <div class="editor-footer">
-        <tag-selector v-model="form.tags"/>
-        <location-picker v-model="form.location"/>
-      </div>
     </div>
   </div>
 </template>
@@ -65,17 +79,16 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diaryStore'
 import FileUploader from '@/components/common/FileUploader.vue'
-import TagSelector from '@/components/common/TagSelector.vue'
-import LocationPicker from '@/components/common/LocationPicker.vue'
+import { ElMessage } from 'element-plus'
 
 const form = ref({
   title: '',
+  destination: '',
   content: '',
-  media: [],
-  tags: [],
-  location: null
+  media: []
 })
 
+const isSubmitted = ref(false)
 const router = useRouter()
 const diaryStore = useDiaryStore()
 
@@ -102,9 +115,14 @@ const removeMedia = (index) => {
   form.value.media.splice(index, 1)
 }
 
+const validateForm = () => {
+  isSubmitted.value = true
+  return form.value.title && form.value.content
+}
+
 const handlePublish = async () => {
-  if (!form.value.title || !form.value.content) {
-    alert('请填写标题和内容')
+  if (!validateForm()) {
+    ElMessage.error('请填写必填项')
     return
   }
 
@@ -112,6 +130,7 @@ const handlePublish = async () => {
     const formData = new FormData()
     formData.append('title', form.value.title)
     formData.append('content', form.value.content)
+    formData.append('destination', form.value.destination)
     form.value.media.forEach(file => {
       formData.append('media', file.file)
     })
@@ -125,6 +144,10 @@ const handlePublish = async () => {
       body: formData
     })
     
+    if (!response.ok) {
+      throw new Error('发布失败')
+    }
+    
     const newDiary = await response.json()
     
     // 更新前端store
@@ -132,9 +155,10 @@ const handlePublish = async () => {
     
     // 跳转到详情页
     router.push(`/diary/${newDiary.id}`)
+    ElMessage.success('发布成功')
   } catch (error) {
     console.error('发布失败:', error)
-    alert('发布失败，请重试')
+    ElMessage.error('发布失败，请重试')
   }
 }
 </script>
@@ -172,43 +196,65 @@ const handlePublish = async () => {
   }
 }
 
-.title-input {
+.form-group {
+  margin-bottom: 24px;
+  
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+  }
+}
+
+.title-input, .destination-input {
   width: 100%;
   font-size: 24px;
   padding: 16px;
-  border: none;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 24px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 8px;
   
   &:focus {
     outline: none;
     border-color: #0071e3;
   }
+  
+  &.error {
+    border-color: #ff4d4f;
+  }
 }
 
-.content-editor {
-  min-height: 400px;
+textarea {
+  width: 100%;
+  height: 300px;
+  padding: 16px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  resize: none;
+  font-size: 16px;
+  line-height: 1.6;
   
-  textarea {
-    width: 100%;
-    height: 200px;
-    padding: 16px;
-    border: none;
-    resize: none;
-    font-size: 16px;
-    line-height: 1.6;
-    
-    &:focus {
-      outline: none;
-    }
+  &:focus {
+    outline: none;
+    border-color: #0071e3;
   }
+  
+  &.error {
+    border-color: #ff4d4f;
+  }
+}
+
+.error-message {
+  color: #ff4d4f;
+  font-size: 14px;
 }
 
 .media-preview {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .media-item {

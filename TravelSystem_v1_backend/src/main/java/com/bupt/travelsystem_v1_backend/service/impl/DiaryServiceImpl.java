@@ -172,26 +172,52 @@ public class DiaryServiceImpl implements DiaryService {
     @Override
     @Transactional
     public Diary rateDiary(Long diaryId, Long userId, Integer rating) {
+        System.out.println("开始处理评分 - 日记ID: " + diaryId + ", 用户ID: " + userId + ", 评分: " + rating);
+        
+        if (rating < 1 || rating > 5) {
+            System.out.println("评分值无效: " + rating);
+            throw new IllegalArgumentException("评分必须在1-5分之间");
+        }
+        
         Diary diary = diaryRepository.findById(diaryId)
-            .orElseThrow(() -> new EntityNotFoundException("日记不存在"));
+            .orElseThrow(() -> {
+                System.out.println("日记不存在 - ID: " + diaryId);
+                return new EntityNotFoundException("日记不存在");
+            });
             
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new EntityNotFoundException("用户不存在"));
+            .orElseThrow(() -> {
+                System.out.println("用户不存在 - ID: " + userId);
+                return new EntityNotFoundException("用户不存在");
+            });
             
+        // 检查用户是否已经评分
+        if (diaryRatingRepository.existsByDiaryAndUser(diary, user)) {
+            System.out.println("用户已评分 - 日记ID: " + diaryId + ", 用户ID: " + userId);
+            throw new IllegalStateException("用户已经评分过了");
+        }
+        
+        System.out.println("创建新的评分记录");
+        // 创建新的评分记录
         DiaryRating diaryRating = new DiaryRating(diary, user, rating);
         diaryRatingRepository.save(diaryRating);
         
-        // 更新平均评分
+        // 更新平均评分和评分人数
         Double averageRating = diaryRatingRepository.getAverageRatingByDiary(diary);
         Long ratingCount = diaryRatingRepository.getRatingCountByDiary(diary);
         
-        diary.setAverageRating(averageRating);
-        diary.setRatingCount(ratingCount.intValue());
+        System.out.println("更新评分统计 - 平均分: " + averageRating + ", 评分人数: " + ratingCount);
+        
+        diary.setAverageRating(averageRating != null ? averageRating : 0.0);
+        diary.setRatingCount(ratingCount != null ? ratingCount.intValue() : 0);
         
         // 更新热度分数
         updatePopularityScore(diaryId);
         
-        return diaryRepository.save(diary);
+        Diary savedDiary = diaryRepository.save(diary);
+        System.out.println("评分处理完成 - 日记ID: " + diaryId);
+        
+        return savedDiary;
     }
 
     @Override
