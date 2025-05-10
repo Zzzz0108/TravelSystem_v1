@@ -3,7 +3,6 @@ import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
 import router from './router'
-import infiniteScroll from 'vue-infinite-scroll'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
@@ -17,6 +16,5 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 
 app.use(createPinia())
 app.use(router)
-app.use(infiniteScroll)
 app.use(ElementPlus)
 app.mount('#app')

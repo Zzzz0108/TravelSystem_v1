@@ -44,7 +44,7 @@
       <div class="main-grid">
         <!-- 地图容器 -->
         <div class="map-container glassmorphism">
-          <div id="amap-container" class="amap-wrapper"></div>
+          <Map ref="mapComponent" />
         </div>
 
         <!-- 信息面板 -->
@@ -84,7 +84,6 @@
                   <span>步行{{ route.steps }}步</span>
                 </div>
                 <div class="stat-item">
-                  <scenery-icon class="stat-icon" />
                   <span>{{ route.poiCount }}个景点</span>
                 </div>
               </div>
@@ -98,16 +97,17 @@
 
 <script setup>
 // 样式部分需要引入图标组件和地图初始化逻辑
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import TagSelector from '@/components/common/TagSelector.vue'
 import WalkIcon from '@/assets/icon/Walk.vue'
 import BikeIcon from '@/assets/icon/Bike.vue'
 import ScooterIcon from '@/assets/icon/Scooter.vue'
-import AMapLoader from '@amap/amap-jsapi-loader'
+import Map from '@/components/navigation/Map.vue'
 
 const searchQuery = ref('')
 const selectedTags = ref([])
 const selectedTransport = ref('walking')
+const mapComponent = ref(null)
 
 const transports = [
   { value: 'walking', label: '步行', icon: WalkIcon },
@@ -115,109 +115,52 @@ const transports = [
   { value: 'scooter', label: '电瓶车', icon: ScooterIcon }
 ]
 
-// 地图实例
-let map = null
-let geolocation = null
-let driving = null
-
 // 模拟定位坐标（示例：清华大学主楼）
 const currentPosition = ref([116.326515, 40.000036])
 const destination = ref('')
 const transportMode = ref('walking')
 
-// 初始化地图
-const initMap = async () => {
-  await AMapLoader.load({
-    key: '2a92b775baf99c5bddcc6640b82ceb34',
-    version: '2.0',
-    plugins: [
-      'AMap.Scale',
-      'AMap.ToolBar',
-      'AMap.Geolocation',
-      'AMap.PlaceSearch',
-      'AMap.Driving'
-    ]
-  })
+// 添加路线数据
+const routes = ref([
+  {
+    name: '最短路线',
+    distance: 0.8,
+    duration: 10,
+    steps: 1000,
+    poiCount: 3
+  },
+  {
+    name: '景观路线',
+    distance: 1.2,
+    duration: 15,
+    steps: 1500,
+    poiCount: 5
+  }
+])
 
-  // 创建地图实例
-  map = new AMap.Map('amap-container', {
-    zoom: 17,
-    center: currentPosition.value,
-    mapStyle: 'amap://styles/darkblue'
-  })
+// 计算过滤后的路线
+const filteredRoutes = computed(() => {
+  return routes.value
+})
 
-  // 添加定位控件
-  geolocation = new AMap.Geolocation({
-    enableHighAccuracy: true,
-    timeout: 10000
-  })
-  map.addControl(geolocation)
-
-  // 初始化路线规划服务
-  driving = new AMap.Driving({
-    map: map,
-    policy: AMap.DrivingPolicy.LEAST_TIME
-  })
+// 添加高亮路线方法
+const highlightRoute = (route) => {
+  console.log('高亮路线:', route)
+  // 这里可以添加路线高亮逻辑
 }
 
 // 路线规划方法
 const calculateRoute = async () => {
   if (!destination.value) return
   
-  // 清除旧路线
-  driving.clear()
-  
-  // 设置交通方式策略
-  const policyMap = {
-    walking: AMap.DrivingPolicy.LEAST_TIME,
-    bike: AMap.DrivingPolicy.LEAST_DISTANCE,
-    scooter: AMap.DrivingPolicy.REAL_TRAFFIC
+  // 使用Map组件的方法进行路线规划
+  if (mapComponent.value) {
+    await mapComponent.value.calculateRoute(destination.value, transportMode.value)
   }
-
-  driving.setPolicy(policyMap[transportMode.value])
-
-  // 执行路线规划
-  driving.search(
-    currentPosition.value,
-    destination.value,
-    (status, result) => {
-      if (status === 'complete') {
-        console.log('路线规划成功', result)
-      } else {
-        console.error('路线规划失败', result)
-      }
-    }
-  )
-}
-
-// 模拟定位
-const locateUser = () => {
-  map.setCenter(currentPosition.value)
-  new AMap.Marker({
-    position: currentPosition.value,
-    map: map,
-    content: '<div class="user-marker">📍</div>'
-  })
 }
 
 onMounted(() => {
-  initMap().then(() => {
-    locateUser()
-    // 添加3D建筑效果
-    map.add(new AMap.Buildings({
-      zooms: [15, 20],
-      heightFactor: 2
-    }))
-    // 添加实时路况图层
-    map.add(new AMap.Traffic({
-      autoRefresh: true
-    }))
-    // 添加热力图
-    map.add(new AMap.HeatMap({
-      radius: 25,
-      opacity: [0, 0.8]
-    }))
-  })
+  // 地图初始化由Map组件内部处理
 })
 </script>
 
@@ -237,10 +180,17 @@ onMounted(() => {
   }
 .navigation-container {
   min-height: 100vh;
-  background: #0a0a0e;
+  //适配渐变色
+  background-image: linear-gradient(
+    90deg,
+    #1760ff 0%,
+    #598dff 50%,
+    #f7f7f8 100%
+  );
+  //background: #1b17ff ;
   color: rgba(255,255,255,0.9);
   position: relative;
-  overflow: hidden;
+  overflow: scroll;
   border-radius: 16px;
 }
 
