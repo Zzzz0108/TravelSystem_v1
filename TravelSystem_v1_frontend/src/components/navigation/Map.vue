@@ -6,6 +6,7 @@
 import { onMounted, ref, onUnmounted, defineExpose } from 'vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
 import { getBuildings, getFacilities, getRoadConnections, getRoadPathPoints } from '@/api/map'
+import axios from 'axios'
 
 const map = ref(null)
 const markers = ref([])
@@ -15,6 +16,11 @@ const facilities = ref([])
 const roadConnections = ref([])
 const loading = ref(false)
 const driving = ref(null)
+const currentPosition = ref([116.3151, 39.9629]) // 书店位置
+const selectedFacilities = ref([])
+const highlightedFacilities = ref([])
+const currentRoute = ref(null)
+const userMarker = ref(null) // 添加用户位置标记引用
 
 // 添加调试数据到全局
 window._mapDebug = {
@@ -293,6 +299,207 @@ const calculateRoute = async (destination, transportMode) => {
   }
 }
 
+// 添加筛选设施的方法
+const filterFacilities = async (facilityType) => {
+  if (!map.value) {
+    console.error('地图未初始化')
+    return
+  }
+  
+  try {
+    // 获取地图中心点
+    const center = map.value.getCenter()
+    console.log('地图中心点:', center)
+    
+    // 调用后端 API 获取附近的设施
+    console.log('正在请求附近设施，参数:', {
+      lat: center.lat,
+      lng: center.lng,
+      type: facilityType,
+      radius: 1000
+    })
+    
+    const response = await axios.get('/api/facilities/nearby', {
+      params: {
+        lat: center.lat,
+        lng: center.lng,
+        type: facilityType,
+        radius: 1000
+      }
+    })
+    
+    console.log('获取到的附近设施:', response.data)
+    const filteredFacilities = response.data
+    
+    // 清除之前的高亮
+    highlightedFacilities.value.forEach(marker => marker.setMap(null))
+    highlightedFacilities.value = []
+    
+    // 高亮显示所有符合条件的设施
+    filteredFacilities.forEach(facility => {
+      console.log('创建设施标记:', facility)
+      const marker = new AMap.Marker({
+        position: [facility.longitude, facility.latitude],
+        title: facility.name,
+        content: `<div style="font-size: 24px;">${facility.icon || '📍'}</div>`,
+        offset: new AMap.Pixel(-12, -12),
+        zIndex: 100,
+        animation: 'AMAP_ANIMATION_DROP'
+      })
+      marker.setMap(map.value)
+      highlightedFacilities.value.push(marker)
+    })
+    
+    // 找出最近的设施
+    const nearest = findNearestFacility(center, filteredFacilities)
+    console.log('最近的设施:', nearest)
+    
+    // 规划到最近设施的路线
+    if (nearest) {
+      const routeData = await planRoute(nearest)
+      return routeData
+    }
+    
+    // 调整地图视野以显示所有高亮的设施
+    if (highlightedFacilities.value.length > 0) {
+      map.value.setFitView(highlightedFacilities.value)
+    }
+  } catch (error) {
+    console.error('获取附近设施失败:', error)
+    if (error.response) {
+      console.error('错误响应:', error.response.data)
+    }
+  }
+}
+
+// 辅助方法：找到最近的设施
+const findNearestFacility = (center, facilities) => {
+  return facilities.reduce((nearest, facility) => {
+    const distance = calculateDistance(
+      center.lat,
+      center.lng,
+      facility.latitude,
+      facility.longitude
+    )
+    if (!nearest || distance < nearest.distance) {
+      return { ...facility, distance }
+    }
+    return nearest
+  }, null)
+}
+
+// 辅助方法：计算两点之间的距离（米）
+const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  const R = 6371000 // 地球半径（米）
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+  return R * c
+}
+
+// 规划路线的方法
+const planRoute = async (facility) => {
+  if (!map.value) return
+  
+  try {
+    console.log('开始规划路线到设施:', facility)
+    const response = await axios.get('/api/route', {
+      params: {
+        startLat: 39.9629, // 书店位置
+        startLng: 116.3151,
+        endId: facility.id,
+        endType: 'facility'
+      }
+    })
+    
+    const routeData = response.data
+    console.log('获取到的路线数据:', routeData)
+    
+    // 清除之前的路线
+    if (currentRoute.value) {
+      currentRoute.value.setMap(null)
+    }
+    
+    // 创建新路线
+    const polyline = new AMap.Polyline({
+      path: routeData.path.map(point => [point.longitude, point.latitude]),
+      strokeColor: '#4fc8f8',
+      strokeWeight: 6,
+      strokeOpacity: 0.8,
+      showDir: true,
+      zIndex: 100
+    })
+    
+    // 添加动画效果
+    const dashArray = [10, 5]
+    let offset = 0
+    
+    const animate = () => {
+      offset = (offset + 1) % 15
+      polyline.setOptions({
+        lineDash: dashArray,
+        lineDashOffset: offset
+      })
+      requestAnimationFrame(animate)
+    }
+    
+    animate()
+    
+    polyline.setMap(map.value)
+    currentRoute.value = polyline
+    
+    // 调整地图视野以显示整个路线
+    map.value.setFitView([polyline])
+    
+    return routeData
+  } catch (error) {
+    console.error('获取路线数据失败:', error)
+    if (error.response) {
+      console.error('错误响应:', error.response.data)
+    }
+  }
+}
+
+// 创建用户位置标记
+const createUserMarker = (AMap) => {
+  // 如果已存在用户标记，先移除
+  if (userMarker.value) {
+    userMarker.value.setMap(null)
+  }
+
+  // 创建新的用户标记
+  userMarker.value = new AMap.Marker({
+    position: currentPosition.value,
+    content: `
+      <div style="
+        width: 24px;
+        height: 24px;
+        background: #4fc8f8;
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 0 10px rgba(79, 200, 248, 0.5);
+        animation: pulse 1.5s infinite;
+      ">
+        <style>
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        </style>
+      </div>
+    `,
+    offset: new AMap.Pixel(-12, -12),
+    zIndex: 1000 // 确保用户标记在最上层
+  })
+
+  // 将标记添加到地图
+  userMarker.value.setMap(map.value)
+}
+
 // 初始化地图
 const initMap = async () => {
   try {
@@ -309,26 +516,16 @@ const initMap = async () => {
     // 先获取数据
     await fetchAllData()
 
-    // 如果有建筑物数据，使用第一个建筑物的位置作为地图中心点
-    let center = [116.3156, 39.9612] // 默认中心点
-    if (buildings.value.length > 0) {
-      const firstBuilding = buildings.value[0]
-      if (firstBuilding.longitude && firstBuilding.latitude) {
-        center = [firstBuilding.longitude, firstBuilding.latitude]
-        console.log('使用第一个建筑物作为地图中心点:', center)
-      } else {
-        console.error('第一个建筑物坐标缺失:', firstBuilding)
-      }
-    } else {
-      console.warn('没有建筑物数据，使用默认中心点')
-    }
+    // 设置默认中心点（书店位置）
+    let center = [116.3151, 39.9629]
+    console.log('设置地图中心点:', center)
 
     map.value = new AMap.Map('map-container', {
       zoom: 17,
       center: center,
       mapStyle: 'amap://styles/whitesmoke',
       viewMode: '2D',
-      backgroundColor: '#ffffff' // 设置背景色为白色
+      backgroundColor: '#ffffff'
     })
 
     // 添加控件
@@ -344,12 +541,14 @@ const initMap = async () => {
     // 创建标记和路径
     createMarkers(AMap)
     createPolylines(AMap)
+    createUserMarker(AMap) // 创建用户位置标记
     console.log('地图初始化完成')
 
     // 添加地图加载完成事件
     map.value.on('complete', () => {
       console.log('地图加载完成，重新创建路径')
       createPolylines(AMap)
+      createUserMarker(AMap) // 重新创建用户位置标记
     })
   } catch (error) {
     console.error('地图初始化失败:', error)
@@ -365,11 +564,107 @@ onUnmounted(() => {
   if (map.value) {
     map.value.destroy()
   }
+  if (userMarker.value) {
+    userMarker.value.setMap(null)
+  }
 })
+
+// 多目标路线规划方法
+const calculateMultiDestinationRoute = async (destinations, transportMode) => {
+  if (!map.value) {
+    console.error('地图未初始化')
+    return
+  }
+
+  try {
+    console.log('开始多目标路线规划:', destinations)
+    
+    // 调用后端 API 进行多目标路线规划
+    const response = await axios.post('/api/route/multi', {
+      startLat: 39.9629, // 书店位置
+      startLng: 116.3151,
+      destinations: destinations,
+      transportMode: transportMode
+    })
+    
+    const routeData = response.data
+    console.log('获取到的多目标路线数据:', routeData)
+    
+    // 清除之前的路线
+    if (currentRoute.value) {
+      currentRoute.value.setMap(null)
+    }
+    
+    // 创建新路线
+    const polyline = new AMap.Polyline({
+      path: routeData.path.map(point => [point.longitude, point.latitude]),
+      strokeColor: '#4fc8f8',
+      strokeWeight: 6,
+      strokeOpacity: 0.8,
+      showDir: true,
+      zIndex: 100
+    })
+    
+    // 添加动画效果
+    const dashArray = [10, 5]
+    let offset = 0
+    
+    const animate = () => {
+      offset = (offset + 1) % 15
+      polyline.setOptions({
+        lineDash: dashArray,
+        lineDashOffset: offset
+      })
+      requestAnimationFrame(animate)
+    }
+    
+    animate()
+    
+    polyline.setMap(map.value)
+    currentRoute.value = polyline
+    
+    // 调整地图视野以显示整个路线
+    map.value.setFitView([polyline])
+    
+    return routeData
+  } catch (error) {
+    console.error('多目标路线规划失败:', error)
+    if (error.response) {
+      console.error('错误响应:', error.response.data)
+    }
+    throw error
+  }
+}
+
+// 新增高亮路线方法
+const highlightRoute = (route) => {
+  if (!map.value || !route || !route.path) return;
+  // 清除之前的高亮路线
+  if (currentRoute.value) {
+    currentRoute.value.setMap(null);
+  }
+  // 创建高亮路线
+  const polyline = new AMap.Polyline({
+    path: route.path.map(point => [point.longitude, point.latitude]),
+    strokeColor: '#ff0000',
+    strokeWeight: 8,
+    strokeOpacity: 0.8,
+    showDir: true,
+    zIndex: 200
+  });
+  polyline.setMap(map.value);
+  currentRoute.value = polyline;
+  // 调整地图视野以显示整个路线
+  map.value.setFitView([polyline]);
+};
 
 // 暴露方法给父组件
 defineExpose({
-  calculateRoute
+  calculateRoute,
+  filterFacilities,
+  planRoute,
+  calculateMultiDestinationRoute,
+  highlightRoute
 })
 </script>
 

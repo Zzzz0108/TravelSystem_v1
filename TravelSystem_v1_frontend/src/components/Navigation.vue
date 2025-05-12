@@ -14,27 +14,56 @@
       <!-- 搜索与筛选 -->
       <div class="control-panel">
         <div class="search-container glassmorphism">
+          <div class="search-input-group">
           <input 
-            v-model="destination"
+              v-model="searchQuery"
             type="text" 
             placeholder="输入目的地（如二校门）"
             class="search-input"
-            @keyup.enter="calculateRoute"
+              @keyup.enter="addDestination"
+            >
+            <button class="add-button" @click="addDestination">
+              <span>+</span>
+            </button>
+          </div>
+          
+          <!-- 已选择的目的地列表 -->
+          <div class="selected-destinations" v-if="selectedDestinations.length > 0">
+            <div 
+              v-for="(dest, index) in selectedDestinations" 
+              :key="index"
+              class="destination-tag"
           >
+              <span>{{ dest }}</span>
+              <button class="remove-button" @click="removeDestination(index)">×</button>
+            </div>
+          </div>
+
           <select v-model="transportMode" class="transport-select">
             <option value="walking">步行</option>
             <option value="bike">自行车</option>
             <option value="scooter">电瓶车</option>
           </select>
-          <button class="search-button" @click="calculateRoute">
+          <button 
+            class="search-button" 
+            @click="calculateRoute"
+            :disabled="selectedDestinations.length === 0"
+          >
             开始导航
+          </button>
+          <button 
+            class="clear-button" 
+            @click="clearRoute"
+            :disabled="routes.length === 0"
+          >
+            清空路线
           </button>
         </div>
 
         <div class="filter-group glassmorphism">
           <tag-selector 
             v-model="selectedTags"
-            :available-tags="['厕所', '餐厅', '图书馆', '麦当劳','诊所','超市','教室','体育场','保卫处','警察局']"
+            :available-tags="['学习场所', '餐厅', '商店', '厕所', '咖啡馆', '运动场所', '医药', '银行', '快递站', '打印店']"
             theme="dark"
           />
         </div>
@@ -84,7 +113,7 @@
                   <span>步行{{ route.steps }}步</span>
                 </div>
                 <div class="stat-item">
-                  <span>{{ route.poiCount }}个景点</span>
+                  <span>{{ route.poiCount }}个目的地</span>
                 </div>
               </div>
             </div>
@@ -97,7 +126,7 @@
 
 <script setup>
 // 样式部分需要引入图标组件和地图初始化逻辑
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import TagSelector from '@/components/common/TagSelector.vue'
 import WalkIcon from '@/assets/icon/Walk.vue'
 import BikeIcon from '@/assets/icon/Bike.vue'
@@ -105,38 +134,29 @@ import ScooterIcon from '@/assets/icon/Scooter.vue'
 import Map from '@/components/navigation/Map.vue'
 
 const searchQuery = ref('')
+const selectedDestinations = ref([])
 const selectedTags = ref([])
 const selectedTransport = ref('walking')
-const mapComponent = ref(null)
-
-const transports = [
-  { value: 'walking', label: '步行', icon: WalkIcon },
-  { value: 'bike', label: '自行车', icon: BikeIcon },
-  { value: 'scooter', label: '电瓶车', icon: ScooterIcon }
-]
-
-// 模拟定位坐标（示例：清华大学主楼）
-const currentPosition = ref([116.326515, 40.000036])
-const destination = ref('')
 const transportMode = ref('walking')
+const mapComponent = ref(null)
+const currentRoute = ref(null)
+
+// 添加设施类型映射
+const facilityTypeMap = {
+  '学习场所': 'LIBRARY',
+  '餐厅': 'CANTEEN',
+  '商店': 'STORE',
+  '厕所': 'TOILET',
+  '咖啡馆': 'CAFE',
+  '运动场所': 'STADIUM',
+  '医药': 'CLINIC',
+  '银行': 'BANK',
+  '快递站': 'EXPRESS',
+  '打印店': 'PRINT'
+}
 
 // 添加路线数据
-const routes = ref([
-  {
-    name: '最短路线',
-    distance: 0.8,
-    duration: 10,
-    steps: 1000,
-    poiCount: 3
-  },
-  {
-    name: '景观路线',
-    distance: 1.2,
-    duration: 15,
-    steps: 1500,
-    poiCount: 5
-  }
-])
+const routes = ref([])
 
 // 计算过滤后的路线
 const filteredRoutes = computed(() => {
@@ -145,17 +165,117 @@ const filteredRoutes = computed(() => {
 
 // 添加高亮路线方法
 const highlightRoute = (route) => {
-  console.log('高亮路线:', route)
-  // 这里可以添加路线高亮逻辑
+  console.log('高亮路线:', route);
+  if (mapComponent.value && typeof mapComponent.value.highlightRoute === 'function') {
+    mapComponent.value.highlightRoute(route);
+  } else {
+    console.warn('mapComponent 或 highlightRoute 方法未定义');
+  }
+};
+
+// 更新路线信息
+const updateRouteInfo = (routeData) => {
+  if (!routeData) return
+  
+  // 计算步行步数（假设每步0.6米）
+  const steps = Math.round(routeData.distance / 0.6)
+  
+  routes.value = [{
+    name: '最短路线',
+    distance: (routeData.distance / 1000).toFixed(1), // 转换为千米
+    duration: Math.round(routeData.time / 60), // 使用后端返回的时间（秒转分钟）
+    steps: steps,
+    poiCount: routeData.poiCount || 0,
+    path: routeData.path
+  }]
+}
+
+// 监听标签选择变化
+watch(selectedTags, async (newTags, oldTags) => {
+  console.log('标签选择发生变化:', {
+    newTags,
+    oldTags,
+    length: newTags.length
+  })
+  
+  if (newTags.length > 0) {
+    // 获取最后一个选中的标签对应的设施类型
+    const lastTag = newTags[newTags.length - 1]
+    const selectedType = facilityTypeMap[lastTag]
+    console.log('选中的标签:', lastTag)
+    console.log('对应的设施类型:', selectedType)
+    console.log('地图组件引用:', mapComponent.value)
+    
+    if (selectedType && mapComponent.value) {
+      console.log('开始调用 filterFacilities 方法')
+      try {
+        const routeData = await mapComponent.value.filterFacilities(selectedType)
+        console.log('获取到的路线数据:', routeData)
+        updateRouteInfo(routeData)
+      } catch (error) {
+        console.error('调用 filterFacilities 方法失败:', error)
+      }
+    } else {
+      console.warn('无法调用 filterFacilities 方法:', {
+        hasSelectedType: !!selectedType,
+        hasMapComponent: !!mapComponent.value
+      })
+    }
+  }
+}, { deep: true, immediate: true })
+
+const transports = [
+  { value: 'walking', label: '步行', icon: WalkIcon },
+  { value: 'bike', label: '自行车', icon: BikeIcon },
+  { value: 'scooter', label: '电瓶车', icon: ScooterIcon }
+]
+
+// 模拟定位坐标（书店位置）
+const currentPosition = ref([116.3151, 39.9629])
+
+// 添加目的地
+const addDestination = () => {
+  if (searchQuery.value.trim()) {
+    selectedDestinations.value.push(searchQuery.value.trim())
+    searchQuery.value = ''
+  }
+}
+
+// 移除目的地
+const removeDestination = (index) => {
+  selectedDestinations.value.splice(index, 1)
 }
 
 // 路线规划方法
 const calculateRoute = async () => {
-  if (!destination.value) return
+  if (selectedDestinations.value.length === 0) return
   
-  // 使用Map组件的方法进行路线规划
+  try {
+    // 调用地图组件的多目标路线规划方法
+    const routeData = await mapComponent.value.calculateMultiDestinationRoute(
+      selectedDestinations.value,
+      transportMode.value
+    )
+
+    // 更新路线信息
+    updateRouteInfo(routeData)
+  } catch (error) {
+    console.error('路线规划失败:', error)
+  }
+}
+
+// 清空路线方法
+const clearRoute = () => {
   if (mapComponent.value) {
-    await mapComponent.value.calculateRoute(destination.value, transportMode.value)
+    // 清除地图上的路线
+    if (mapComponent.value.currentRoute) {
+      mapComponent.value.currentRoute.setMap(null)
+      mapComponent.value.currentRoute = null
+    }
+    // 清空路线信息
+    routes.value = []
+    // 清空已选择的目的地
+    selectedDestinations.value = []
   }
 }
 
@@ -422,5 +542,91 @@ onMounted(() => {
 
 .active .scooter-icon {
   filter: drop-shadow(0 0 6px rgba(255, 179, 0, 0.4));
+}
+
+.search-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.add-button {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: rgba(255,255,255,0.2);
+    transform: scale(1.1);
+  }
+}
+
+.selected-destinations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+}
+
+.destination-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.9rem;
+
+  .remove-button {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0;
+    line-height: 1;
+
+    &:hover {
+      color: white;
+    }
+  }
+}
+
+.search-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clear-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-left: 1rem;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 </style>

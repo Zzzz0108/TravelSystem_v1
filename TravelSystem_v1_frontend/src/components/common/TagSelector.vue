@@ -48,12 +48,14 @@ const selectedTags = computed({
 })
 
 const toggleTag = (tag) => {
+  console.log('标签被点击:', tag)
   const index = selectedTags.value.indexOf(tag)
   if (index > -1) {
     selectedTags.value.splice(index, 1)
   } else {
     selectedTags.value.push(tag)
   }
+  console.log('当前选中的标签:', selectedTags.value)
 }
 </script>
 

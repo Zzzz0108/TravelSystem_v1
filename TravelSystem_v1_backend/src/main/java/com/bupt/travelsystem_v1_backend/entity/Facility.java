@@ -42,17 +42,4 @@ public class Facility {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "spot_id", insertable = false, updatable = false)
     private Spot spot;
-}
-
-enum FacilityType {
-    LIBRARY,
-    CANTEEN,
-    STORE,
-    TOILET,
-    CAFE,
-    STADIUM,
-    CLINIC,
-    BANK,
-    EXPRESS,
-    PRINT
 } 

@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface PathPointRepository extends JpaRepository<PathPoint, Long> {
     List<PathPoint> findByRoadIdOrderBySequenceNumberAsc(Integer roadId);
+    List<PathPoint> findByRoadId(Integer roadId);
 } 
