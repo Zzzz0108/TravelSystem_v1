@@ -241,7 +241,7 @@ export const useSpotStore = defineStore('spot', () => {
     try {
       const token = localStorage.getItem('token')
       if (!token) {
-        throw new Error('未登录，请先登录')
+        return false
       }
       
       const response = await api.post(`/spots/${spotId}/toggle-favorite`, null, {
@@ -261,10 +261,10 @@ export const useSpotStore = defineStore('spot', () => {
         }
         return response.data
       }
-      throw new Error('切换收藏状态失败')
+      return false
     } catch (error) {
       console.error('切换收藏状态失败:', error)
-      throw error
+      return false
     }
   }
 

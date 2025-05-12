@@ -5,7 +5,7 @@
         <img 
           v-for="(img, index) in diaryStore.currentDiary.images" 
           :key="index"
-          :src="img.imageUrl"
+          :src="getImageUrl(img.imageUrl)"
           class="detail-image"
           loading="lazy"
           @click="handlePreview(index)"
@@ -20,7 +20,7 @@
       >
       <video 
         v-if="diaryStore.currentDiary.video"
-        :src="diaryStore.currentDiary.video"
+        :src="getImageUrl(diaryStore.currentDiary.video)"
         class="detail-video"
         controls
       ></video>
@@ -203,8 +203,14 @@ const handlePreview = (index) => {
   // 处理图片预览逻辑
 }
 
+const getImageUrl = (url) => {
+  if (!url) return '/images/diaries/default.jpg'
+  if (url.startsWith('http')) return url
+  return `http://localhost:9090${url}`
+}
+
 const handleImageError = (e) => {
-  console.error('图片加载失败:', e.target.src)
+  console.log('图片加载失败:', e.target.src)
   console.log('当前图片路径:', e.target.src)
   console.log('尝试加载默认图片')
   e.target.src = '/images/diaries/default.jpg'

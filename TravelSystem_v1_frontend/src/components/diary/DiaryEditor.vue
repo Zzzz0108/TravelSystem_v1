@@ -1,62 +1,83 @@
 <template>
   <div class="editor-container">
-    <div class="editor-header">
-      <h2>撰写新游记</h2>
-      <button class="publish-btn" @click="handlePublish">
-        发布
-      </button>
-    </div>
-    
-    <div class="editor-main">
-      <input 
-        v-model="form.title"
-        type="text"
-        placeholder="添加标题..."
-        class="title-input"
-      >
+    <el-card class="editor-card">
+      <div class="editor-header">
+        <h2>撰写新游记</h2>
+        <el-button 
+          type="primary" 
+          size="large"
+          @click="handlePublish"
+          :loading="loading"
+          class="publish-btn"
+        >
+          发布
+        </el-button>
+      </div>
       
-      <div class="content-editor">
-        <textarea
-          v-model="form.content"
-          placeholder="分享你的旅行故事..."
-        ></textarea>
+      <div class="editor-main">
+        <el-input
+          v-model="form.title"
+          type="text"
+          placeholder="添加标题..."
+          class="title-input"
+          size="large"
+        />
         
-        <!-- 多媒体上传区域 -->
-        <file-uploader @files-selected="handleFiles"/>
+        <div class="content-editor">
+          <el-input
+            v-model="form.content"
+            type="textarea"
+            :rows="8"
+            placeholder="分享你的旅行故事..."
+            resize="none"
+            class="content-input"
+          />
+          
+          <!-- 多媒体上传区域 -->
+          <div class="upload-section">
+            <file-uploader @files-selected="handleFiles"/>
+            
+            <!-- 已上传内容预览 -->
+            <div class="media-preview">
+              <el-card 
+                v-for="(file, index) in form.media"
+                :key="index"
+                class="media-item"
+                shadow="hover"
+              >
+                <img 
+                  v-if="file.type.startsWith('image')"
+                  :src="file.url"
+                  class="preview-image"
+                >
+                <video 
+                  v-else
+                  :src="file.url"
+                  controls
+                  class="preview-video"
+                ></video>
+                <el-button
+                  class="delete-btn"
+                  type="danger"
+                  circle
+                  size="small"
+                  @click="removeMedia(index)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </el-card>
+            </div>
+          </div>
+        </div>
         
-        <!-- 已上传内容预览 -->
-        <div class="media-preview">
-          <div 
-            v-for="(file, index) in form.media"
-            :key="index"
-            class="media-item"
-          >
-            <img 
-              v-if="file.type.startsWith('image')"
-              :src="file.url"
-              class="preview-image"
-            >
-            <video 
-              v-else
-              :src="file.url"
-              controls
-              class="preview-video"
-            ></video>
-            <button 
-              class="delete-btn"
-              @click="removeMedia(index)"
-            >
-              ×
-            </button>
+        <div class="editor-footer">
+          <div class="footer-section">
+            <h3>选择位置</h3>
+            <location-picker v-model="form.location"/>
           </div>
         </div>
       </div>
-      
-      <div class="editor-footer">
-        <tag-selector v-model="form.tags"/>
-        <location-picker v-model="form.location"/>
-      </div>
-    </div>
+    </el-card>
   </div>
 </template>
 
@@ -64,18 +85,20 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diaryStore'
+import { ElMessage } from 'element-plus'
+import { Delete } from '@element-plus/icons-vue'
 import FileUploader from '@/components/common/FileUploader.vue'
-import TagSelector from '@/components/common/TagSelector.vue'
 import LocationPicker from '@/components/common/LocationPicker.vue'
+import axios from 'axios'
 
 const form = ref({
   title: '',
   content: '',
   media: [],
-  tags: [],
   location: null
 })
 
+const loading = ref(false)
 const router = useRouter()
 const diaryStore = useDiaryStore()
 
@@ -104,37 +127,46 @@ const removeMedia = (index) => {
 
 const handlePublish = async () => {
   if (!form.value.title || !form.value.content) {
-    alert('请填写标题和内容')
+    ElMessage.warning('请填写标题和内容')
     return
   }
 
   try {
+    loading.value = true
     const formData = new FormData()
     formData.append('title', form.value.title)
     formData.append('content', form.value.content)
+    if (form.value.location) {
+      formData.append('destination', form.value.location)
+      console.log('添加目的地:', form.value.location)
+    }
     form.value.media.forEach(file => {
       formData.append('media', file.file)
     })
     
-    // 提交到后端
-    const response = await fetch('/api/diaries', {
-      method: 'POST',
+    // 使用axios发送请求
+    const response = await axios.post('/api/diaries', formData, {
+      baseURL: 'http://localhost:9090',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: formData
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'multipart/form-data'
+      }
     })
     
-    const newDiary = await response.json()
+    const newDiary = response.data
+    console.log('服务器返回的日记数据:', newDiary)
     
     // 更新前端store
-    diaryStore.addDiary(newDiary)
+    diaryStore.createDiary(newDiary)
     
+    ElMessage.success('发布成功')
     // 跳转到详情页
     router.push(`/diary/${newDiary.id}`)
   } catch (error) {
     console.error('发布失败:', error)
-    alert('发布失败，请重试')
+    ElMessage.error(error.response?.data?.message || '发布失败，请重试')
+  } finally {
+    loading.value = false
   }
 }
 </script>
@@ -146,6 +178,17 @@ const handlePublish = async () => {
   padding: 40px 20px;
 }
 
+.editor-card {
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(24, 91, 246, 0.1);
+  border: none;
+  overflow: hidden;
+  
+  :deep(.el-card__body) {
+    padding: 32px;
+  }
+}
+
 .editor-header {
   display: flex;
   justify-content: space-between;
@@ -153,76 +196,108 @@ const handlePublish = async () => {
   margin-bottom: 40px;
   
   h2 {
-    font-size: 24px;
+    font-size: 28px;
     margin: 0;
+    color: #333;
+    font-weight: 600;
   }
 }
 
 .publish-btn {
-  background: #0071e3;
-  color: white;
-  padding: 10px 24px;
+  background: #185bf6;
   border: none;
-  border-radius: 24px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 12px 32px;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 12px;
+  transition: all 0.3s ease;
   
   &:hover {
-    background: #0051a3;
+    background: #0f4cd9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(24, 91, 246, 0.2);
   }
 }
 
 .title-input {
-  width: 100%;
-  font-size: 24px;
-  padding: 16px;
-  border: none;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
   
-  &:focus {
-    outline: none;
-    border-color: #0071e3;
+  :deep(.el-input__wrapper) {
+    box-shadow: none;
+    border: 2px solid #eee;
+    border-radius: 12px;
+    padding: 16px 20px;
+    transition: all 0.3s ease;
+    
+    &:hover, &:focus {
+      box-shadow: none;
+      border-color: #185bf6;
+    }
+  }
+  
+  :deep(.el-input__inner) {
+    font-size: 24px;
+    font-weight: 500;
+    
+    &::placeholder {
+      color: #999;
+    }
   }
 }
 
 .content-editor {
-  min-height: 400px;
+  margin-bottom: 32px;
   
-  textarea {
-    width: 100%;
-    height: 200px;
-    padding: 16px;
-    border: none;
-    resize: none;
-    font-size: 16px;
-    line-height: 1.6;
+  .content-input {
+    margin-bottom: 24px;
     
-    &:focus {
-      outline: none;
+    :deep(.el-textarea__inner) {
+      font-size: 16px;
+      line-height: 1.8;
+      padding: 20px;
+      border: 2px solid #eee;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      
+      &:hover, &:focus {
+        border-color: #185bf6;
+        box-shadow: 0 4px 12px rgba(24, 91, 246, 0.1);
+      }
+      
+      &::placeholder {
+        color: #999;
+      }
     }
   }
+}
+
+.upload-section {
+  margin-top: 32px;
+  padding: 24px;
+  background: #f8f9ff;
+  border-radius: 12px;
 }
 
 .media-preview {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
+  gap: 20px;
   margin-top: 24px;
 }
 
 .media-item {
   position: relative;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
+  transition: all 0.3s ease;
+  border: none;
   
-  .preview-image {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(24, 91, 246, 0.15);
   }
   
-  .preview-video {
+  .preview-image, .preview-video {
     width: 100%;
     height: 200px;
     object-fit: cover;
@@ -230,15 +305,36 @@ const handlePublish = async () => {
   
   .delete-btn {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
+    top: 12px;
+    right: 12px;
+    opacity: 0;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
     border: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    cursor: pointer;
+    
+    &:hover {
+      background: #fff;
+      transform: scale(1.1);
+    }
+  }
+  
+  &:hover .delete-btn {
+    opacity: 1;
+  }
+}
+
+.editor-footer {
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 2px solid #f0f2ff;
+  
+  .footer-section {
+    h3 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
   }
 }
 </style>

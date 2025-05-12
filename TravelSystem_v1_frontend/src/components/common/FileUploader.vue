@@ -18,6 +18,8 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
 const emit = defineEmits(['files-selected'])
 const fileInput = ref(null)
 

@@ -1,14 +1,22 @@
 package com.bupt.travelsystem_v1_backend.controller;
 
 import com.bupt.travelsystem_v1_backend.entity.Diary;
+import com.bupt.travelsystem_v1_backend.entity.DiaryImage;
+import com.bupt.travelsystem_v1_backend.entity.DiaryImageId;
 import com.bupt.travelsystem_v1_backend.service.DiaryService;
 import com.bupt.travelsystem_v1_backend.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/diaries")
@@ -16,6 +24,9 @@ public class DiaryController {
 
     private final DiaryService diaryService;
     private final UserService userService;
+    
+    @Value("${file.upload-dir}")
+    private String uploadDir;
 
     public DiaryController(DiaryService diaryService, UserService userService) {
         this.diaryService = diaryService;
@@ -45,10 +56,65 @@ public class DiaryController {
         }
     }
 
-    @PostMapping
-    public ResponseEntity<Diary> createDiary(@RequestBody Diary diary, Authentication authentication) {
-        Long userId = Long.parseLong(authentication.getName());
-        return ResponseEntity.ok(diaryService.createDiary(diary, userId));
+    @PostMapping(consumes = "multipart/form-data")
+    public ResponseEntity<Diary> createDiary(
+            @RequestPart("title") String title,
+            @RequestPart("content") String content,
+            @RequestPart(value = "destination", required = false) String destination,
+            @RequestPart(value = "media", required = false) List<MultipartFile> mediaFiles,
+            Authentication authentication) {
+        try {
+            // 通过用户名获取用户ID
+            Long userId;
+            try {
+                userId = userService.getUserIdByUsername(authentication.getName());
+            } catch (RuntimeException e) {
+                return ResponseEntity.badRequest().body(null);
+            }
+
+            Diary diary = new Diary();
+            diary.setTitle(title);
+            diary.setContent(content);
+            diary.setDestination(destination);
+            
+            // 先保存日记
+            diary = diaryService.createDiary(diary, userId);
+            
+            // 处理媒体文件
+            if (mediaFiles != null && !mediaFiles.isEmpty()) {
+                // 确保上传目录存在
+                File uploadDirFile = new File(uploadDir + "/diaries");
+                if (!uploadDirFile.exists()) {
+                    uploadDirFile.mkdirs();
+                }
+                
+                for (MultipartFile file : mediaFiles) {
+                    if (!file.isEmpty()) {
+                        // 生成文件名
+                        String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+                        // 保存文件
+                        File dest = new File(uploadDirFile, fileName);
+                        file.transferTo(dest);
+                        
+                        // 创建图片记录
+                        DiaryImage image = new DiaryImage();
+                        DiaryImageId imageId = new DiaryImageId();
+                        imageId.setDiaryId(diary.getId());
+                        image.setId(imageId);
+                        image.setImageUrl("/uploads/diaries/" + fileName);
+                        image.setDiary(diary);
+                        diary.getImages().add(image);
+                    }
+                }
+                // 保存更新后的日记（包含图片）
+                diary = diaryService.updateDiary(diary.getId(), diary, userId);
+            }
+            
+            return ResponseEntity.ok(diary);
+        } catch (Exception e) {
+            e.printStackTrace(); // 添加错误日志
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PutMapping("/{id}")

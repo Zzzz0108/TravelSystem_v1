@@ -26,8 +26,6 @@
         </router-link>
         <div class="nav-divider"></div>
         <template v-if="userStore.isLogin">
-          
-          <router-link to="/visited" class="nav-item">我去过的</router-link>
           <router-link 
             to="/favorites" 
             class="nav-link"

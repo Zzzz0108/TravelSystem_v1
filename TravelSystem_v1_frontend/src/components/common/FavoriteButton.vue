@@ -3,7 +3,6 @@
     class="favorite-button"
     :class="{ 'favorited': isFavorited }"
     @click.stop="handleClick"
-    :disabled="loading"
   >
     <svg class="heart-icon" viewBox="0 0 24 24">
       <path :d="heartPath"/>
@@ -14,7 +13,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useSpotStore } from '@/stores/spotStore'
-import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   spotId: {
@@ -30,7 +28,6 @@ const props = defineProps({
 const emit = defineEmits(['update:favorited'])
 
 const spotStore = useSpotStore()
-const loading = ref(false)
 const isFavorited = ref(props.initialFavorited)
 
 const heartPath = computed(() => {
@@ -40,20 +37,8 @@ const heartPath = computed(() => {
 })
 
 const handleClick = async () => {
-  console.log('FavoriteButton: handleClick 开始执行', {
-    spotId: props.spotId,
-    isFavorited: isFavorited.value,
-    timestamp: new Date().toISOString()
-  });
-  
   try {
-    loading.value = true
     const success = await spotStore.toggleFavorite(props.spotId)
-    console.log('FavoriteButton: toggleFavorite 执行结果', {
-      success,
-      spotId: props.spotId,
-      timestamp: new Date().toISOString()
-    });
     isFavorited.value = success
     emit('update:favorited', success)
   } catch (error) {
@@ -62,14 +47,10 @@ const handleClick = async () => {
       spotId: props.spotId,
       timestamp: new Date().toISOString()
     });
-    ElMessage.error('操作失败，请重试');
-    // 不再手动恢复状态，而是重新获取收藏状态
     await spotStore.fetchFavoriteSpots()
     const isCurrentlyFavorited = spotStore.favoriteSpots.some(spot => spot.id === props.spotId)
     isFavorited.value = isCurrentlyFavorited
     emit('update:favorited', isCurrentlyFavorited)
-  } finally {
-    loading.value = false
   }
 }
 </script>
@@ -95,11 +76,6 @@ const handleClick = async () => {
 
 .favorite-button.favorited .heart-icon path {
   fill: #ff2d55;
-}
-
-.favorite-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 
 .heart-icon {

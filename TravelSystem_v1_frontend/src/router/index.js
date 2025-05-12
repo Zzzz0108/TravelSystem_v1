@@ -58,12 +58,6 @@ const router = createRouter({
       component: ForgotPassword
     },
     {
-      path: '/visited',
-      name: 'Visited',
-      component: () => import('@/views/VisitedSpots.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
       path: '/navigation/:spotId',
       name: 'SpotNavigation',
       component: () => import('@/components/Navigation.vue'),
