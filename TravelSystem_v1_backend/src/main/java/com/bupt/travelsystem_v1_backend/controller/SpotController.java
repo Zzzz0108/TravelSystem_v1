@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/spots")
@@ -89,5 +91,47 @@ public class SpotController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
         }
+    }
+
+    @PostMapping("/{id}/rate")
+    public ResponseEntity<Spot> rateSpot(
+            @PathVariable Long id,
+            @RequestParam Integer rating) {
+        try {
+            Spot spot = spotService.rateSpot(id, rating);
+            return ResponseEntity.ok(spot);
+        } catch (RuntimeException e) {
+            if (e.getMessage().equals("用户未登录")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/{id}/ratings")
+    public ResponseEntity<Map<String, Object>> getSpotRatings(@PathVariable Long id) {
+        try {
+            Double averageRating = spotService.getAverageRating(id);
+            Long ratingCount = spotService.getRatingCount(id);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("averageRating", averageRating);
+            response.put("ratingCount", ratingCount);
+            
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/{id}/rating/count")
+    public ResponseEntity<Long> getRatingCount(@PathVariable Long id) {
+        return ResponseEntity.ok(spotService.getRatingCount(id));
+    }
+    
+    @GetMapping("/recommended")
+    public ResponseEntity<List<Spot>> getRecommendedSpots(
+            @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(spotService.getRecommendedSpots(limit));
     }
 } 

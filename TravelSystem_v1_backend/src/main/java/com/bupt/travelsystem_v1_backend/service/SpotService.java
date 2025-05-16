@@ -15,4 +15,12 @@ public interface SpotService {
     Spot incrementPopularity(Long id);
     List<Spot> getUserFavorites();
     boolean toggleFavorite(Long spotId);
+    
+    // 新增评分相关方法
+    Spot rateSpot(Long spotId, Integer rating);
+    Double getAverageRating(Long spotId);
+    Long getRatingCount(Long spotId);
+    
+    // 获取推荐景点（综合评分和热度）
+    List<Spot> getRecommendedSpots(int limit);
 } 

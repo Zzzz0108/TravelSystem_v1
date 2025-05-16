@@ -268,6 +268,45 @@ export const useSpotStore = defineStore('spot', () => {
     }
   }
 
+  const rateSpot = async (spotId, rating) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('未登录，请先登录')
+      }
+
+      const response = await api.post(`/spots/${spotId}/rate`, null, {
+        params: { rating },
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.data) {
+        // 更新本地景点数据
+        const index = spots.value.findIndex(s => s.id === spotId)
+        if (index !== -1) {
+          spots.value[index] = response.data
+        }
+        return response.data
+      }
+      throw new Error('评分失败')
+    } catch (err) {
+      console.error('评分失败:', err)
+      throw err
+    }
+  }
+
+  const getSpotRatings = async (spotId) => {
+    try {
+      const response = await api.get(`/spots/${spotId}/ratings`)
+      return response.data
+    } catch (err) {
+      console.error('获取评分信息失败:', err)
+      throw err
+    }
+  }
+
   return {
     spots,
     sortedSpots,
@@ -280,6 +319,8 @@ export const useSpotStore = defineStore('spot', () => {
     addFavorite,
     removeFavorite,
     fetchFavoriteSpots,
-    toggleFavorite
+    toggleFavorite,
+    rateSpot,
+    getSpotRatings
   }
 }) 

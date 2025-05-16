@@ -3,11 +3,12 @@ package com.bupt.travelsystem_v1_backend.service;
 import com.bupt.travelsystem_v1_backend.entity.Diary;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface DiaryService {
     // 创建日记
-    Diary createDiary(Diary diary, Long userId);
+    Diary createDiary(String title, String content, String destination, Long spotId, Integer spotRating, MultipartFile[] media, Long userId);
     
     // 更新日记
     Diary updateDiary(Long id, Diary diary, Long userId);

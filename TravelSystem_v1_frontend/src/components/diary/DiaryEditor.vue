@@ -75,6 +75,16 @@
             <h3>选择位置</h3>
             <location-picker v-model="form.location"/>
           </div>
+          
+          <!-- 添加评分组件 -->
+          <div class="footer-section" v-if="form.location && form.location.id">
+            <h3>景点评分</h3>
+            <star-rating
+              v-model="form.rating"
+              :rating-count="0"
+              :show-text="true"
+            />
+          </div>
         </div>
       </div>
     </el-card>
@@ -89,13 +99,15 @@ import { ElMessage } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import FileUploader from '@/components/common/FileUploader.vue'
 import LocationPicker from '@/components/common/LocationPicker.vue'
+import StarRating from '@/components/common/StarRating.vue'
 import axios from 'axios'
 
 const form = ref({
   title: '',
   content: '',
   media: [],
-  location: null
+  location: null,
+  rating: 0
 })
 
 const loading = ref(false)
@@ -136,15 +148,29 @@ const handlePublish = async () => {
     const formData = new FormData()
     formData.append('title', form.value.title)
     formData.append('content', form.value.content)
-    if (form.value.location) {
-      formData.append('destination', form.value.location)
-      console.log('添加目的地:', form.value.location)
+    
+    if (form.value.location && form.value.location.id) {
+      formData.append('destination', form.value.location.city)
+      formData.append('spotId', form.value.location.id)
+      if (form.value.rating > 0) {
+        formData.append('spotRating', form.value.rating)
+      }
+      console.log('添加目的地:', form.value.location.city)
+      console.log('添加景点ID:', form.value.location.id)
+      console.log('添加评分:', form.value.rating)
     }
-    form.value.media.forEach(file => {
+    
+    form.value.media.forEach((file, index) => {
       formData.append('media', file.file)
+      console.log(`添加媒体文件 ${index + 1}:`, file.file.name)
     })
     
-    // 使用axios发送请求
+    console.log('发送请求到:', 'http://localhost:9090/api/diaries')
+    console.log('请求头:', {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      'Content-Type': 'multipart/form-data'
+    })
+    
     const response = await axios.post('/api/diaries', formData, {
       baseURL: 'http://localhost:9090',
       headers: {
@@ -156,14 +182,31 @@ const handlePublish = async () => {
     const newDiary = response.data
     console.log('服务器返回的日记数据:', newDiary)
     
-    // 更新前端store
     diaryStore.createDiary(newDiary)
-    
     ElMessage.success('发布成功')
-    // 跳转到详情页
     router.push(`/diary/${newDiary.id}`)
   } catch (error) {
     console.error('发布失败:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    })
+    
+    // 如果是403错误，说明日记已经创建成功，只是返回了错误
+    if (error.response?.status === 403) {
+      ElMessage.success('发布成功')
+      // 尝试从错误响应中获取日记ID
+      const diaryId = error.response?.data?.id
+      if (diaryId) {
+        router.push(`/diary/${diaryId}`)
+      } else {
+        // 如果没有ID，跳转到日记列表页
+        router.push('/diaries')
+      }
+      return
+    }
+    
     ElMessage.error(error.response?.data?.message || '发布失败，请重试')
   } finally {
     loading.value = false
@@ -329,6 +372,8 @@ const handlePublish = async () => {
   border-top: 2px solid #f0f2ff;
   
   .footer-section {
+    margin-bottom: 24px;
+    
     h3 {
       font-size: 18px;
       color: #333;

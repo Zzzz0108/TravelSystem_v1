@@ -9,6 +9,8 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -56,63 +58,46 @@ public class DiaryController {
         }
     }
 
-    @PostMapping(consumes = "multipart/form-data")
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Diary> createDiary(
-            @RequestPart("title") String title,
-            @RequestPart("content") String content,
-            @RequestPart(value = "destination", required = false) String destination,
-            @RequestPart(value = "media", required = false) List<MultipartFile> mediaFiles,
+            @RequestParam("title") String title,
+            @RequestParam("content") String content,
+            @RequestParam(value = "destination", required = false) String destination,
+            @RequestParam(value = "spotId", required = false) Long spotId,
+            @RequestParam(value = "spotRating", required = false) Integer spotRating,
+            @RequestParam(value = "media", required = false) MultipartFile[] media,
             Authentication authentication) {
         try {
-            // 通过用户名获取用户ID
-            Long userId;
-            try {
-                userId = userService.getUserIdByUsername(authentication.getName());
-            } catch (RuntimeException e) {
-                return ResponseEntity.badRequest().body(null);
-            }
-
-            Diary diary = new Diary();
-            diary.setTitle(title);
-            diary.setContent(content);
-            diary.setDestination(destination);
+            System.out.println("=== 创建日记请求 ===");
+            System.out.println("标题: " + title);
+            System.out.println("内容: " + content);
+            System.out.println("目的地: " + destination);
+            System.out.println("景点ID: " + spotId);
+            System.out.println("景点评分: " + spotRating);
+            System.out.println("媒体文件数量: " + (media != null ? media.length : 0));
             
-            // 先保存日记
-            diary = diaryService.createDiary(diary, userId);
-            
-            // 处理媒体文件
-            if (mediaFiles != null && !mediaFiles.isEmpty()) {
-                // 确保上传目录存在
-                File uploadDirFile = new File(uploadDir + "/diaries");
-                if (!uploadDirFile.exists()) {
-                    uploadDirFile.mkdirs();
-                }
-                
-                for (MultipartFile file : mediaFiles) {
-                    if (!file.isEmpty()) {
-                        // 生成文件名
-                        String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-                        // 保存文件
-                        File dest = new File(uploadDirFile, fileName);
-                        file.transferTo(dest);
-                        
-                        // 创建图片记录
-                        DiaryImage image = new DiaryImage();
-                        DiaryImageId imageId = new DiaryImageId();
-                        imageId.setDiaryId(diary.getId());
-                        image.setId(imageId);
-                        image.setImageUrl("/uploads/diaries/" + fileName);
-                        image.setDiary(diary);
-                        diary.getImages().add(image);
-                    }
-                }
-                // 保存更新后的日记（包含图片）
-                diary = diaryService.updateDiary(diary.getId(), diary, userId);
+            if (authentication == null) {
+                System.out.println("错误: 用户未认证");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
+            
+            String username = authentication.getName();
+            System.out.println("用户名: " + username);
+            
+            Long userId = userService.getUserIdByUsername(username);
+            if (userId == null) {
+                System.out.println("错误: 找不到用户ID");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            System.out.println("用户ID: " + userId);
+            
+            Diary diary = diaryService.createDiary(title, content, destination, spotId, spotRating, media, userId);
+            System.out.println("日记创建成功，ID: " + diary.getId());
             
             return ResponseEntity.ok(diary);
-        } catch (Exception e) {
-            e.printStackTrace(); // 添加错误日志
+        } catch (RuntimeException e) {
+            System.out.println("创建日记失败: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }

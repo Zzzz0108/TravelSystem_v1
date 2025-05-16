@@ -4,13 +4,17 @@ import com.bupt.travelsystem_v1_backend.entity.Diary;
 import com.bupt.travelsystem_v1_backend.entity.User;
 import com.bupt.travelsystem_v1_backend.entity.DiaryLike;
 import com.bupt.travelsystem_v1_backend.entity.DiaryRating;
+import com.bupt.travelsystem_v1_backend.entity.DiaryImage;
+import com.bupt.travelsystem_v1_backend.entity.DiaryImageId;
 import com.bupt.travelsystem_v1_backend.repository.DiaryRepository;
 import com.bupt.travelsystem_v1_backend.repository.UserRepository;
 import com.bupt.travelsystem_v1_backend.repository.DiaryLikeRepository;
 import com.bupt.travelsystem_v1_backend.repository.DiaryRatingRepository;
 import com.bupt.travelsystem_v1_backend.service.DiaryService;
+import com.bupt.travelsystem_v1_backend.service.SpotService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,9 @@ import java.util.Base64;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.io.File;
+import java.util.UUID;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class DiaryServiceImpl implements DiaryService {
@@ -37,20 +44,90 @@ public class DiaryServiceImpl implements DiaryService {
 
     @Autowired
     private DiaryRatingRepository diaryRatingRepository;
+    
+    @Autowired
+    private SpotService spotService;
+    
+    @Value("${file.upload-dir}")
+    private String uploadDir;
 
     @Override
     @Transactional
-    public Diary createDiary(Diary diary, Long userId) {
-        User author = userRepository.findById(userId)
-            .orElseThrow(() -> new EntityNotFoundException("用户不存在"));
+    public Diary createDiary(String title, String content, String destination, Long spotId, Integer spotRating, MultipartFile[] media, Long userId) {
+        try {
+            System.out.println("=== DiaryServiceImpl.createDiary ===");
+            System.out.println("用户ID: " + userId);
             
-        diary.setAuthor(author);
-        diary.setCreatedAt(java.time.LocalDateTime.now());
-        diary.setViews(0);
-        diary.setLikes(0);
-        diary.setCommentsCount(0);
-        
-        return diaryRepository.save(diary);
+            // 创建日记
+            Diary diary = new Diary();
+            diary.setTitle(title);
+            diary.setContent(content);
+            diary.setDestination(destination);
+            
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("用户不存在: " + userId));
+            diary.setAuthor(user);
+            
+            // 保存日记
+            diary = diaryRepository.save(diary);
+            System.out.println("日记基本信息保存成功，ID: " + diary.getId());
+            
+            // 处理景点评分
+            if (spotId != null && spotRating != null && spotRating > 0) {
+                try {
+                    System.out.println("正在保存景点评分 - 景点ID: " + spotId + ", 评分: " + spotRating);
+                    spotService.rateSpot(spotId, spotRating);
+                    System.out.println("景点评分保存成功");
+                } catch (Exception e) {
+                    System.out.println("景点评分保存失败: " + e.getMessage());
+                    e.printStackTrace();
+                    // 评分失败不影响日记创建
+                }
+            }
+            
+            // 处理媒体文件
+            if (media != null && media.length > 0) {
+                try {
+                    // 确保上传目录存在
+                    File uploadDirFile = new File(uploadDir + "/diaries");
+                    if (!uploadDirFile.exists()) {
+                        uploadDirFile.mkdirs();
+                    }
+                    
+                    for (MultipartFile file : media) {
+                        if (!file.isEmpty()) {
+                            // 生成文件名
+                            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+                            // 保存文件
+                            File dest = new File(uploadDirFile, fileName);
+                            file.transferTo(dest);
+                            
+                            // 创建图片记录
+                            DiaryImage image = new DiaryImage();
+                            DiaryImageId imageId = new DiaryImageId();
+                            imageId.setDiaryId(diary.getId());
+                            image.setId(imageId);
+                            image.setImageUrl("/uploads/diaries/" + fileName);
+                            image.setDiary(diary);
+                            diary.getImages().add(image);
+                        }
+                    }
+                    // 保存更新后的日记（包含图片）
+                    diary = diaryRepository.save(diary);
+                    System.out.println("媒体文件保存成功");
+                } catch (Exception e) {
+                    System.out.println("媒体文件保存失败: " + e.getMessage());
+                    e.printStackTrace();
+                    throw new RuntimeException("保存媒体文件失败", e);
+                }
+            }
+            
+            return diary;
+        } catch (Exception e) {
+            System.out.println("创建日记失败: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("创建日记失败", e);
+        }
     }
 
     @Override

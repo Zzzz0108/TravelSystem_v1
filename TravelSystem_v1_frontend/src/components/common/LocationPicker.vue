@@ -1,48 +1,87 @@
 <!-- src/components/common/LocationPicker.vue -->
 <template>
   <div class="location-picker">
-    <el-input
+    <el-autocomplete
       v-model="searchQuery"
+      :fetch-suggestions="querySearch"
       placeholder="输入地点名称"
       class="location-input"
-      @input="handleSearch"
+      @select="handleSelect"
+      :trigger-on-focus="false"
     >
       <template #prefix>
         <el-icon><Location /></el-icon>
       </template>
-    </el-input>
+      <template #default="{ item }">
+        <div class="suggestion-item">
+          <span class="name">{{ item.name }}</span>
+          <span class="city">{{ item.city }}</span>
+        </div>
+      </template>
+    </el-autocomplete>
   </div>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
 import { Location } from '@element-plus/icons-vue'
+import axios from 'axios'
 
 const props = defineProps({
   modelValue: {
-    type: String,
-    default: ''
+    type: Object,
+    default: null
   }
 })
 
 const emit = defineEmits(['update:modelValue'])
 
-const searchQuery = ref(props.modelValue)
-
-// 监听输入变化
-watch(searchQuery, (newValue) => {
-  emit('update:modelValue', newValue)
-})
+const searchQuery = ref('')
 
 // 监听外部值变化
 watch(() => props.modelValue, (newValue) => {
-  if (newValue !== searchQuery.value) {
-    searchQuery.value = newValue
+  if (newValue) {
+    searchQuery.value = newValue.name
   }
 })
 
-const handleSearch = () => {
-  emit('update:modelValue', searchQuery.value)
+const querySearch = async (query, callback) => {
+  if (query.length < 2) {
+    callback([])
+    return
+  }
+
+  try {
+    const response = await axios.get(`/api/spots/search`, {
+      params: { keyword: query },
+      baseURL: 'http://localhost:9090'
+    })
+    
+    if (response.data && Array.isArray(response.data)) {
+      const suggestions = response.data.map(spot => ({
+        value: spot.name,
+        name: spot.name,
+        city: spot.city,
+        id: spot.id,
+        type: spot.type
+      }))
+      callback(suggestions)
+    } else {
+      callback([])
+    }
+  } catch (error) {
+    console.error('搜索地点失败:', error)
+    callback([])
+  }
+}
+
+const handleSelect = (item) => {
+  emit('update:modelValue', {
+    id: item.id,
+    name: item.name,
+    city: item.city,
+    type: item.type
+  })
 }
 </script>
 
@@ -51,6 +90,8 @@ const handleSearch = () => {
   width: 100%;
   
   .location-input {
+    width: 100%;
+    
     :deep(.el-input__wrapper) {
       box-shadow: none;
       border: 2px solid #eee;
@@ -71,6 +112,23 @@ const handleSearch = () => {
         color: #999;
       }
     }
+  }
+}
+
+.suggestion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  
+  .name {
+    font-weight: 500;
+    color: #333;
+  }
+  
+  .city {
+    color: #666;
+    font-size: 14px;
   }
 }
 </style>
