@@ -9,6 +9,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -151,49 +153,23 @@ public class DiaryController {
     }
 
     @PostMapping("/{id}/rate")
-    public ResponseEntity<?> rateDiary(
+    public ResponseEntity<Diary> rateDiary(
             @PathVariable Long id,
-            @RequestParam Integer rating,
+            @RequestBody Map<String, Integer> request,
             Authentication authentication) {
         try {
-            System.out.println("=== 收到评分请求 ===");
-            System.out.println("日记ID: " + id);
-            System.out.println("评分: " + rating);
-            System.out.println("用户认证: " + (authentication != null ? authentication.getName() : "未登录"));
-            
-            if (authentication == null) {
-                System.out.println("错误: 用户未登录");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body("用户未登录");
-            }
-            
-            if (rating < 1 || rating > 5) {
-                System.out.println("错误: 评分必须在1-5之间");
-                return ResponseEntity.badRequest()
-                        .body("评分必须在1-5之间");
-            }
-            
             String username = authentication.getName();
             Long userId = userService.getUserIdByUsername(username);
             if (userId == null) {
-                System.out.println("错误: 找不到用户ID");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body("找不到用户ID");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
-            System.out.println("用户ID: " + userId);
-            
-            Diary diary = diaryService.rateDiary(id, userId, rating);
-            System.out.println("评分成功，日记ID: " + diary.getId());
-            
-            return ResponseEntity.ok(diary);
-        } catch (EntityNotFoundException e) {
-            System.out.println("错误: 日记不存在 - " + e.getMessage());
-            return ResponseEntity.notFound()
-                    .build();
+            Integer rating = request.get("rating");
+            if (rating == null || rating < 1 || rating > 5) {
+                return ResponseEntity.badRequest().build();
+            }
+            return ResponseEntity.ok(diaryService.rateDiary(id, userId, rating));
         } catch (RuntimeException e) {
-            System.out.println("错误: " + e.getMessage());
-            return ResponseEntity.badRequest()
-                    .body(e.getMessage());
+            return ResponseEntity.badRequest().build();
         }
     }
 
@@ -210,9 +186,14 @@ public class DiaryController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/search/title")
+    @GetMapping("/search/exact")
     public ResponseEntity<Diary> searchByExactTitle(@RequestParam String title) {
-        return ResponseEntity.ok(diaryService.getDiaryByExactTitle(title));
+        try {
+            Diary diary = diaryService.findByExactTitle(title);
+            return ResponseEntity.ok(diary);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/search/fulltext")
@@ -253,5 +234,41 @@ public class DiaryController {
         Page<Diary> result = diaryService.fullTextSearch(content, pageable);
         System.out.println("返回 " + result.getTotalElements() + " 条日记记录");
         return ResponseEntity.ok(result);
+    }
+    
+    @GetMapping("/search/prefix")
+    public ResponseEntity<Page<Diary>> searchByTitlePrefix(
+            @RequestParam String prefix,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(diaryService.findByTitlePrefix(prefix, pageable));
+    }
+    
+    @GetMapping("/search/suffix")
+    public ResponseEntity<Page<Diary>> searchByTitleSuffix(
+            @RequestParam String suffix,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(diaryService.findByTitleSuffix(suffix, pageable));
+    }
+    
+    @GetMapping("/search/contains")
+    public ResponseEntity<Page<Diary>> searchByTitleContains(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(diaryService.findByTitleContains(keyword, pageable));
+    }
+    
+    @GetMapping("/search/pattern")
+    public ResponseEntity<Page<Diary>> searchByTitlePattern(
+            @RequestParam String pattern,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(diaryService.findByTitlePattern(pattern, pageable));
     }
 } 

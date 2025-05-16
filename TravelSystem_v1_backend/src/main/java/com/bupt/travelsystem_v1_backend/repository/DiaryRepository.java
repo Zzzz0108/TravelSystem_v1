@@ -56,4 +56,24 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     // 获取所有目的地列表
     @Query("SELECT DISTINCT d.destination FROM Diary d WHERE d.destination IS NOT NULL")
     List<String> findAllDestinations();
+
+    // 使用哈希索引的精确标题搜索
+    @Query(value = "SELECT * FROM diaries WHERE title = :title", nativeQuery = true)
+    Optional<Diary> findByExactTitle(@Param("title") String title);
+    
+    // 使用哈希索引的标题前缀搜索
+    @Query(value = "SELECT * FROM diaries WHERE title LIKE :prefix%", nativeQuery = true)
+    Page<Diary> findByTitlePrefix(@Param("prefix") String prefix, Pageable pageable);
+    
+    // 使用哈希索引的标题后缀搜索
+    @Query(value = "SELECT * FROM diaries WHERE title LIKE %:suffix", nativeQuery = true)
+    Page<Diary> findByTitleSuffix(@Param("suffix") String suffix, Pageable pageable);
+    
+    // 使用哈希索引的标题包含搜索
+    @Query(value = "SELECT * FROM diaries WHERE title LIKE %:keyword%", nativeQuery = true)
+    Page<Diary> findByTitleContains(@Param("keyword") String keyword, Pageable pageable);
+    
+    // 使用哈希索引的标题模糊搜索（支持多个关键词）
+    @Query(value = "SELECT * FROM diaries WHERE title REGEXP :pattern", nativeQuery = true)
+    Page<Diary> findByTitlePattern(@Param("pattern") String pattern, Pageable pageable);
 } 

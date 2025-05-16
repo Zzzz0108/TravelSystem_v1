@@ -33,16 +33,9 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                // 公开接口
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/diaries/search/**").permitAll()
-                .requestMatchers("/api/diaries/latest").permitAll()
-                .requestMatchers("/api/diaries/popular").permitAll()
-                .requestMatchers("/api/diaries/{id}").permitAll()
+                .requestMatchers("/api/**").permitAll()
                 .requestMatchers("/static/**", "/public/**", "/resources/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
-                // 需要认证的接口
-                .requestMatchers("/api/diaries/**").authenticated()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

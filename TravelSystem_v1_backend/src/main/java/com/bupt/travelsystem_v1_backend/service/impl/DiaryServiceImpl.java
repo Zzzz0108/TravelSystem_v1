@@ -12,6 +12,7 @@ import com.bupt.travelsystem_v1_backend.repository.DiaryLikeRepository;
 import com.bupt.travelsystem_v1_backend.repository.DiaryRatingRepository;
 import com.bupt.travelsystem_v1_backend.service.DiaryService;
 import com.bupt.travelsystem_v1_backend.service.SpotService;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +30,12 @@ import java.nio.charset.StandardCharsets;
 import java.io.File;
 import java.util.UUID;
 import org.springframework.web.multipart.MultipartFile;
-import java.util.Optional;
+import java.util.Arrays;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class DiaryServiceImpl implements DiaryService {
@@ -52,6 +58,18 @@ public class DiaryServiceImpl implements DiaryService {
     @Value("${file.upload-dir}")
     private String uploadDir;
 
+    // 添加内存缓存
+    private final Map<String, Diary> titleCache = new ConcurrentHashMap<>();
+    
+    @PostConstruct
+    public void init() {
+        // 初始化缓存
+        List<Diary> allDiaries = diaryRepository.findAll();
+        for (Diary diary : allDiaries) {
+            titleCache.put(diary.getTitle(), diary);
+        }
+    }
+
     @Override
     @Transactional
     public Diary createDiary(String title, String content, String destination, Long spotId, Integer spotRating, MultipartFile[] media, Long userId) {
@@ -72,6 +90,9 @@ public class DiaryServiceImpl implements DiaryService {
             // 保存日记
             diary = diaryRepository.save(diary);
             System.out.println("日记基本信息保存成功，ID: " + diary.getId());
+            
+            // 更新缓存
+            titleCache.put(diary.getTitle(), diary);
             
             // 处理景点评分
             if (spotId != null && spotRating != null && spotRating > 0) {
@@ -144,7 +165,10 @@ public class DiaryServiceImpl implements DiaryService {
         existingDiary.setTitle(diary.getTitle());
         existingDiary.setContent(diary.getContent());
         
-        return diaryRepository.save(existingDiary);
+        Diary updatedDiary = diaryRepository.save(existingDiary);
+        // 更新缓存
+        titleCache.put(updatedDiary.getTitle(), updatedDiary);
+        return updatedDiary;
     }
 
     @Override
@@ -157,6 +181,8 @@ public class DiaryServiceImpl implements DiaryService {
             throw new SecurityException("无权删除此日记");
         }
         
+        // 从缓存中删除
+        titleCache.remove(diary.getTitle());
         diaryRepository.deleteById(id);
     }
 
@@ -250,39 +276,14 @@ public class DiaryServiceImpl implements DiaryService {
     @Override
     @Transactional
     public Diary rateDiary(Long diaryId, Long userId, Integer rating) {
-        System.out.println("=== DiaryServiceImpl.rateDiary ===");
-        System.out.println("日记ID: " + diaryId);
-        System.out.println("用户ID: " + userId);
-        System.out.println("评分: " + rating);
-        
-        // 验证评分范围
-        if (rating < 1 || rating > 5) {
-            throw new IllegalArgumentException("评分必须在1-5之间");
-        }
-        
         Diary diary = diaryRepository.findById(diaryId)
             .orElseThrow(() -> new EntityNotFoundException("日记不存在"));
             
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("用户不存在"));
-        
-        // 检查是否已存在评分
-        Optional<DiaryRating> existingRating = diaryRatingRepository.findByDiaryAndUser(diary, user);
-        DiaryRating diaryRating;
-        
-        if (existingRating.isPresent()) {
-            // 更新已有评分
-            System.out.println("更新已有评分");
-            diaryRating = existingRating.get();
-            diaryRating.setRating(rating);
-        } else {
-            // 创建新评分
-            System.out.println("创建新评分");
-            diaryRating = new DiaryRating(diary, user, rating);
-        }
-        
+            
+        DiaryRating diaryRating = new DiaryRating(diary, user, rating);
         diaryRatingRepository.save(diaryRating);
-        System.out.println("评分保存成功");
         
         // 更新平均评分
         Double averageRating = diaryRatingRepository.getAverageRatingByDiary(diary);
@@ -294,7 +295,6 @@ public class DiaryServiceImpl implements DiaryService {
         // 更新热度分数
         updatePopularityScore(diaryId);
         
-        System.out.println("日记更新成功");
         return diaryRepository.save(diary);
     }
 
@@ -379,5 +379,39 @@ public class DiaryServiceImpl implements DiaryService {
         Page<Diary> result = diaryRepository.findByTitle(title, pageable);
         System.out.println("Found " + result.getTotalElements() + " results");
         return result;
+    }
+
+    @Override
+    public Diary findByExactTitle(String title) {
+        // 从缓存中查找
+        Diary diary = titleCache.get(title);
+        if (diary == null) {
+            throw new EntityNotFoundException("未找到标题为 " + title + " 的日记");
+        }
+        return diary;
+    }
+    
+    @Override
+    public Page<Diary> findByTitlePrefix(String prefix, Pageable pageable) {
+        return diaryRepository.findByTitlePrefix(prefix, pageable);
+    }
+    
+    @Override
+    public Page<Diary> findByTitleSuffix(String suffix, Pageable pageable) {
+        return diaryRepository.findByTitleSuffix(suffix, pageable);
+    }
+    
+    @Override
+    public Page<Diary> findByTitleContains(String keyword, Pageable pageable) {
+        return diaryRepository.findByTitleContains(keyword, pageable);
+    }
+    
+    @Override
+    public Page<Diary> findByTitlePattern(String pattern, Pageable pageable) {
+        // 将空格分隔的关键词转换为正则表达式模式
+        String regexPattern = Arrays.stream(pattern.split("\\s+"))
+            .map(Pattern::quote)
+            .collect(Collectors.joining(".*"));
+        return diaryRepository.findByTitlePattern(regexPattern, pageable);
     }
 } 

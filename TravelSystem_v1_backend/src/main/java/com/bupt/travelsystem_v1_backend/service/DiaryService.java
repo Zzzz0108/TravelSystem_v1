@@ -66,4 +66,19 @@ public interface DiaryService {
     
     // 解压日记内容
     String decompressDiaryContent(String compressedContent);
+    
+    // 精确标题搜索
+    Diary findByExactTitle(String title);
+    
+    // 标题前缀搜索
+    Page<Diary> findByTitlePrefix(String prefix, Pageable pageable);
+    
+    // 标题后缀搜索
+    Page<Diary> findByTitleSuffix(String suffix, Pageable pageable);
+    
+    // 标题包含搜索
+    Page<Diary> findByTitleContains(String keyword, Pageable pageable);
+    
+    // 标题模式搜索
+    Page<Diary> findByTitlePattern(String pattern, Pageable pageable);
 } 

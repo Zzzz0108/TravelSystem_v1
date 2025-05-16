@@ -5,28 +5,6 @@ const api = axios.create({
   withCredentials: true
 });
 
-// 添加请求拦截器
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// 添加响应拦截器
-api.interceptors.response.use(
-  response => response,
-  error => {
-    if (error.response?.status === 401) {
-      // token 过期或无效，清除用户信息
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
-
 // 获取日记列表
 export const getDiaries = async (params) => {
   const response = await api.get('/diaries', { params });
@@ -105,18 +83,12 @@ export const getUserDiaries = async (userId, params) => {
 
 // 评分日记
 export const rateDiary = async (id, rating) => {
-  try {
-    console.log('发送评分请求:', { id, rating });
-    const response = await api.post(`/diaries/${id}/rate?rating=${rating}`);
-    console.log('评分响应:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('评分失败:', error);
-    if (error.response) {
-      throw new Error(error.response.data || '评分失败');
+  const response = await api.post(`/diaries/${id}/rate`, { rating }, {
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
     }
-    throw error;
-  }
+  });
+  return response.data;
 };
 
 // 根据目的地搜索日记
