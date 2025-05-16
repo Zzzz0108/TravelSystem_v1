@@ -9,9 +9,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface DiaryRatingRepository extends JpaRepository<DiaryRating, DiaryRatingId> {
     boolean existsByDiaryAndUser(Diary diary, User user);
+    
+    Optional<DiaryRating> findByDiaryAndUser(Diary diary, User user);
     
     @Query("SELECT AVG(r.rating) FROM DiaryRating r WHERE r.diary = :diary")
     Double getAverageRatingByDiary(@Param("diary") Diary diary);

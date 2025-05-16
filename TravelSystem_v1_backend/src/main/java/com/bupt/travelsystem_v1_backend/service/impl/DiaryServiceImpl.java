@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.io.File;
 import java.util.UUID;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.Optional;
 
 @Service
 public class DiaryServiceImpl implements DiaryService {
@@ -249,14 +250,39 @@ public class DiaryServiceImpl implements DiaryService {
     @Override
     @Transactional
     public Diary rateDiary(Long diaryId, Long userId, Integer rating) {
+        System.out.println("=== DiaryServiceImpl.rateDiary ===");
+        System.out.println("日记ID: " + diaryId);
+        System.out.println("用户ID: " + userId);
+        System.out.println("评分: " + rating);
+        
+        // 验证评分范围
+        if (rating < 1 || rating > 5) {
+            throw new IllegalArgumentException("评分必须在1-5之间");
+        }
+        
         Diary diary = diaryRepository.findById(diaryId)
             .orElseThrow(() -> new EntityNotFoundException("日记不存在"));
             
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("用户不存在"));
-            
-        DiaryRating diaryRating = new DiaryRating(diary, user, rating);
+        
+        // 检查是否已存在评分
+        Optional<DiaryRating> existingRating = diaryRatingRepository.findByDiaryAndUser(diary, user);
+        DiaryRating diaryRating;
+        
+        if (existingRating.isPresent()) {
+            // 更新已有评分
+            System.out.println("更新已有评分");
+            diaryRating = existingRating.get();
+            diaryRating.setRating(rating);
+        } else {
+            // 创建新评分
+            System.out.println("创建新评分");
+            diaryRating = new DiaryRating(diary, user, rating);
+        }
+        
         diaryRatingRepository.save(diaryRating);
+        System.out.println("评分保存成功");
         
         // 更新平均评分
         Double averageRating = diaryRatingRepository.getAverageRatingByDiary(diary);
@@ -268,6 +294,7 @@ public class DiaryServiceImpl implements DiaryService {
         // 更新热度分数
         updatePopularityScore(diaryId);
         
+        System.out.println("日记更新成功");
         return diaryRepository.save(diary);
     }
 

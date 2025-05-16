@@ -151,15 +151,49 @@ public class DiaryController {
     }
 
     @PostMapping("/{id}/rate")
-    public ResponseEntity<Diary> rateDiary(
+    public ResponseEntity<?> rateDiary(
             @PathVariable Long id,
             @RequestParam Integer rating,
             Authentication authentication) {
         try {
-            Long userId = Long.parseLong(authentication.getName());
-            return ResponseEntity.ok(diaryService.rateDiary(id, userId, rating));
+            System.out.println("=== 收到评分请求 ===");
+            System.out.println("日记ID: " + id);
+            System.out.println("评分: " + rating);
+            System.out.println("用户认证: " + (authentication != null ? authentication.getName() : "未登录"));
+            
+            if (authentication == null) {
+                System.out.println("错误: 用户未登录");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("用户未登录");
+            }
+            
+            if (rating < 1 || rating > 5) {
+                System.out.println("错误: 评分必须在1-5之间");
+                return ResponseEntity.badRequest()
+                        .body("评分必须在1-5之间");
+            }
+            
+            String username = authentication.getName();
+            Long userId = userService.getUserIdByUsername(username);
+            if (userId == null) {
+                System.out.println("错误: 找不到用户ID");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("找不到用户ID");
+            }
+            System.out.println("用户ID: " + userId);
+            
+            Diary diary = diaryService.rateDiary(id, userId, rating);
+            System.out.println("评分成功，日记ID: " + diary.getId());
+            
+            return ResponseEntity.ok(diary);
+        } catch (EntityNotFoundException e) {
+            System.out.println("错误: 日记不存在 - " + e.getMessage());
+            return ResponseEntity.notFound()
+                    .build();
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
+            System.out.println("错误: " + e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(e.getMessage());
         }
     }
 

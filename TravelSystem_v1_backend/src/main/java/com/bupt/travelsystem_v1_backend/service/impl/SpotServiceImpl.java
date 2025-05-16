@@ -48,7 +48,73 @@ public class SpotServiceImpl implements SpotService {
 
     @Override
     public List<Spot> getSpotsByCity(String city) {
-        return spotRepository.findByCityOrderByPopularityDesc(city);
+        try {
+            System.out.println("=== SpotServiceImpl.getSpotsByCity ===");
+            System.out.println("城市: " + city);
+            
+            // 获取指定城市的所有景点
+            List<Spot> citySpots = spotRepository.findByCity(city, Sort.by(Sort.Direction.DESC, "popularity"));
+            System.out.println("城市景点数量: " + citySpots.size());
+            
+            // 创建一个包装类来存储景点和其综合分数
+            class SpotWithScore implements Comparable<SpotWithScore> {
+                Spot spot;
+                double score;
+                
+                SpotWithScore(Spot spot, double score) {
+                    this.spot = spot;
+                    this.score = score;
+                }
+                
+                @Override
+                public int compareTo(SpotWithScore other) {
+                    return Double.compare(this.score, other.score);
+                }
+            }
+            
+            // 计算每个景点的综合分数
+            List<SpotWithScore> spotsWithScores = new ArrayList<>();
+            citySpots.forEach(spot -> {
+                Double avgRating = spotRatingRepository.getAverageRatingBySpot(spot);
+                Long ratingCount = spotRatingRepository.getRatingCountBySpot(spot);
+                
+                // 如果还没有评分，使用默认值
+                if (avgRating == null) avgRating = 0.0;
+                if (ratingCount == null) ratingCount = 0L;
+                
+                // 计算综合分数：热度 * 0.4 + 平均评分 * 0.6
+                double popularity = spot.getPopularity() != null ? spot.getPopularity() : 0;
+                double score = popularity * 0.4 + avgRating * 0.6;
+                
+                spotsWithScores.add(new SpotWithScore(spot, score));
+                
+                System.out.println("景点: " + spot.getName() + 
+                    ", 热度: " + popularity + 
+                    ", 平均评分: " + avgRating + 
+                    ", 评分数量: " + ratingCount + 
+                    ", 综合分数: " + score);
+            });
+            
+            // 使用堆排序获取所有景点（按综合分数排序）
+            PriorityQueue<SpotWithScore> heap = new PriorityQueue<>();
+            for (SpotWithScore spotWithScore : spotsWithScores) {
+                heap.offer(spotWithScore);
+            }
+            
+            // 将堆中的景点转换为列表并反转顺序（从高到低）
+            List<Spot> sortedSpots = new ArrayList<>();
+            while (!heap.isEmpty()) {
+                sortedSpots.add(0, heap.poll().spot);
+            }
+            
+            System.out.println("排序后景点数量: " + sortedSpots.size());
+            return sortedSpots;
+            
+        } catch (Exception e) {
+            System.out.println("获取城市景点失败: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("获取城市景点失败: " + e.getMessage());
+        }
     }
 
     @Override
