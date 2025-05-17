@@ -25,7 +25,7 @@ public class Diary {
     private String content;
 
     @Lob
-    @Column(name = "content_compressed")
+    @Column(name = "content_compressed", columnDefinition = "LONGBLOB")
     private byte[] contentCompressed;
 
     @Column(name = "is_compressed", nullable = false)

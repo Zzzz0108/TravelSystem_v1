@@ -78,7 +78,20 @@
           <div v-if="!generatedAnimation" class="preview-placeholder">
             <p>上传照片并点击生成按钮开始创建动画</p>
           </div>
-          <video v-else :src="generatedAnimation" controls></video>
+          <div v-else class="video-container">
+            <video :src="generatedAnimation" controls></video>
+            <div class="video-link">
+              <a :href="generatedAnimation" target="_blank" class="link-button">
+                <i class="iconfont icon-link"></i>
+                点击查看视频
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
         </div>
 
         <!-- 生成按钮 -->
@@ -87,7 +100,8 @@
           :disabled="!canGenerate"
           @click="generateAnimation"
         >
-          生成动画
+          <span v-if="isLoading">生成中...</span>
+          <span v-else>生成动画</span>
         </button>
       </div>
     </div>
@@ -95,7 +109,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from '@/utils/axios'
+
+const router = useRouter()
 
 // 状态变量
 const fileInput = ref(null)
@@ -104,9 +122,19 @@ const animationStyle = ref('realistic')
 const animationDuration = ref('60')
 const backgroundMusic = ref('none')
 const generatedAnimation = ref(null)
+const isLoading = ref(false)
+const errorMessage = ref('')
 
 // 计算属性
-const canGenerate = computed(() => uploadedImages.value.length > 0)
+const canGenerate = computed(() => uploadedImages.value.length > 0 && !isLoading.value)
+
+// 检查登录状态
+onMounted(() => {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    router.push('/login')
+  }
+})
 
 // 方法
 const triggerFileInput = () => {
@@ -143,9 +171,102 @@ const removeImage = (index) => {
 }
 
 const generateAnimation = async () => {
-  // TODO: 实现动画生成逻辑
-  console.log('生成动画...')
-}
+  if (!isLoggedIn.value) {
+    errorMessage.value = '请先登录后再生成动画';
+    return;
+  }
+  
+  try {
+    isLoading.value = true;
+    errorMessage.value = '';
+    
+    const formData = new FormData();
+    formData.append('title', '我的旅行动画');
+    formData.append('style', animationStyle.value.toUpperCase());
+    formData.append('duration', animationDuration.value);
+    formData.append('musicType', backgroundMusic.value.toUpperCase());
+    
+    uploadedImages.value.forEach((image, index) => {
+      formData.append('images', image.file);
+    });
+    
+    const response = await axios.post('/api/animations', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    // 只获取必要的ID字段
+    const animationId = response.data?.id;
+    if (!animationId) {
+      throw new Error('无法获取动画ID');
+    }
+    
+    // 开始轮询检查视频生成状态
+    const checkVideoStatus = async () => {
+      try {
+        const statusResponse = await axios.get(`/api/animations/${animationId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        const animation = statusResponse.data;
+        if (!animation) {
+          throw new Error('状态响应数据为空');
+        }
+        
+        if (animation.status === 'FAILED') {
+          throw new Error('视频生成失败');
+        }
+        
+        if (animation.videoUrl) {
+          const baseUrl = 'http://localhost:9090/uploads/';
+          const fullUrl = baseUrl + animation.videoUrl;
+          generatedAnimation.value = fullUrl;
+          return true;
+        }
+        
+        return false;
+      } catch (error) {
+        errorMessage.value = error.message || '检查视频状态失败';
+        return false;
+      }
+    };
+    
+    // 立即检查一次状态
+    const isComplete = await checkVideoStatus();
+    if (isComplete) {
+      return;
+    }
+    
+    // 如果第一次检查没有完成，开始轮询
+    let attempts = 0;
+    const maxAttempts = 20;
+    
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      const isComplete = await checkVideoStatus();
+      
+      if (isComplete || attempts >= maxAttempts) {
+        clearInterval(pollInterval);
+        if (attempts >= maxAttempts) {
+          errorMessage.value = '视频生成超时，请稍后查看';
+        }
+      }
+    }, 3000);
+    
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || error.message || '生成动画失败，请稍后重试';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const isLoggedIn = computed(() => {
+  return localStorage.getItem('token') !== null;
+});
 </script>
 
 <style lang="scss" scoped>
@@ -307,11 +428,50 @@ const generateAnimation = async () => {
     color: #666;
   }
 
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  .video-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    
+    video {
+      width: 100%;
+      border-radius: 8px;
+    }
+    
+    .video-link {
+      text-align: center;
+      
+      .link-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #1760ff;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        
+        &:hover {
+          background: #357abd;
+          transform: translateY(-2px);
+        }
+        
+        i {
+          font-size: 1.2rem;
+        }
+      }
+    }
   }
+}
+
+.error-message {
+  color: #ff4444;
+  background: rgba(255, 68, 68, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  text-align: center;
 }
 
 .generate-btn {
@@ -324,14 +484,21 @@ const generateAnimation = async () => {
   font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.3s ease;
-
+  position: relative;
+  
   &:hover:not(:disabled) {
     background: #357abd;
   }
-
+  
   &:disabled {
     background: #ccc;
     cursor: not-allowed;
+    opacity: 0.7;
+  }
+  
+  span {
+    display: inline-block;
+    min-width: 80px;
   }
 }
 

@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "comments")
+@Table(name = "diary_comments")
 @Data
 public class Comment {
     @Id
@@ -23,6 +23,6 @@ public class Comment {
     @JoinColumn(name = "diary_id", nullable = false)
     private Diary diary;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 } 

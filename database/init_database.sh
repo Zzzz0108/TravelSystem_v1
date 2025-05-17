@@ -14,7 +14,7 @@ mysql -u root -e "CREATE DATABASE travel_system;"
 # 执行所有SQL文件
 for file in *.sql
 do
-    if [ -f "$file" ]; then
+    if [ -f "$file" ] && [ "$file" != "15_comments.sql" ]; then
         echo "正在执行 $file..."
         mysql -u root travel_system < "$file"
         if [ $? -eq 0 ]; then
