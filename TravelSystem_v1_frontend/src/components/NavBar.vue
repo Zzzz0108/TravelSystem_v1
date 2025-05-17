@@ -67,7 +67,8 @@ const router = useRouter()
 const links = [
   { name: '首页', path: '/' },
   { name: '景区导航', path: '/navigation' },
-  { name: '旅行日记', path: '/diary' }
+  { name: '旅行日记', path: '/diary' },
+  { name: '旅游动画', path: '/travel-animation' }
 ]
 
 // 省份和景点数据

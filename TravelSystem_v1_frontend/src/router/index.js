@@ -62,6 +62,11 @@ const router = createRouter({
       name: 'SpotNavigation',
       component: () => import('@/components/Navigation.vue'),
       props: true
+    },
+    {
+      path: '/travel-animation',
+      name: 'TravelAnimation',
+      component: () => import('@/views/TravelAnimationView.vue')
     }
   ]
 })
