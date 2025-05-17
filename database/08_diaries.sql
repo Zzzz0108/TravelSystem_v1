@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS `travel_system`.`diaries`(
     `id` bigint NOT NULL AUTO_INCREMENT,
     `content` text NULL,
+    `content_compressed` LONGBLOB NULL,
+    `is_compressed` tinyint(1) NOT NULL DEFAULT '0',
     `created_at` datetime(6) NOT NULL,
     `likes` int NOT NULL,
     `title` varchar(255) NOT NULL,

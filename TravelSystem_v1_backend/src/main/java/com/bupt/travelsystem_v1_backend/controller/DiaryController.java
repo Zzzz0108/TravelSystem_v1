@@ -13,14 +13,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/diaries")
@@ -210,17 +208,27 @@ public class DiaryController {
     }
 
     @PostMapping("/{id}/compress")
-    public ResponseEntity<String> compressDiaryContent(@PathVariable Long id) {
-        Diary diary = diaryService.getDiaryById(id);
-        String compressedContent = diaryService.compressDiaryContent(diary.getContent());
-        return ResponseEntity.ok(compressedContent);
+    public ResponseEntity<?> compressDiaryContent(@PathVariable Long id) {
+        try {
+            Diary diary = diaryService.getDiaryById(id);
+            String compressedContent = diaryService.compressDiaryContent(diary.getContent());
+            return ResponseEntity.ok(compressedContent);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("压缩失败: " + e.getMessage());
+        }
     }
 
     @PostMapping("/{id}/decompress")
-    public ResponseEntity<String> decompressDiaryContent(@PathVariable Long id) {
-        Diary diary = diaryService.getDiaryById(id);
-        String decompressedContent = diaryService.decompressDiaryContent(diary.getContent());
-        return ResponseEntity.ok(decompressedContent);
+    public ResponseEntity<?> decompressDiaryContent(@PathVariable Long id) {
+        try {
+            Diary diary = diaryService.getDiaryById(id);
+            String decompressedContent = diaryService.decompressDiaryContent(diary.getContent());
+            return ResponseEntity.ok(decompressedContent);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("解压失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/search/content")
@@ -270,5 +278,17 @@ public class DiaryController {
             @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
         return ResponseEntity.ok(diaryService.findByTitlePattern(pattern, pageable));
+    }
+
+    @PostMapping("/compress-all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> compressAllDiaries() {
+        try {
+            diaryService.batchCompressDiaries();
+            return ResponseEntity.ok("批量压缩完成");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("批量压缩失败: " + e.getMessage());
+        }
     }
 } 

@@ -24,6 +24,13 @@ public class Diary {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    @Lob
+    @Column(name = "content_compressed")
+    private byte[] contentCompressed;
+
+    @Column(name = "is_compressed", nullable = false)
+    private boolean isCompressed = false;
+
     @Column(length = 255)
     private String destination;
 
@@ -58,16 +65,16 @@ public class Diary {
     @Column(nullable = false)
     private Integer likes = 0;
 
-    @Column(nullable = false)
+    @Column(name = "comments_count")
     private Integer commentsCount = 0;
 
-    @Column(nullable = false)
+    @Column(name = "average_rating", nullable = false)
     private Double averageRating = 0.0;
 
-    @Column(nullable = false)
+    @Column(name = "rating_count", nullable = false)
     private Integer ratingCount = 0;
 
-    @Column(nullable = false)
+    @Column(name = "popularity_score", nullable = false)
     private Double popularityScore = 0.0;
 
     @CreationTimestamp

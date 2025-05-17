@@ -12,6 +12,8 @@ import com.bupt.travelsystem_v1_backend.repository.DiaryLikeRepository;
 import com.bupt.travelsystem_v1_backend.repository.DiaryRatingRepository;
 import com.bupt.travelsystem_v1_backend.service.DiaryService;
 import com.bupt.travelsystem_v1_backend.service.SpotService;
+import com.bupt.travelsystem_v1_backend.service.CompressionService;
+import com.bupt.travelsystem_v1_backend.service.ImageCompressionService;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,7 @@ import java.util.stream.Collectors;
 import java.util.Map;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.zip.DataFormatException;
 
 @Service
 public class DiaryServiceImpl implements DiaryService {
@@ -54,6 +57,12 @@ public class DiaryServiceImpl implements DiaryService {
     
     @Autowired
     private SpotService spotService;
+    
+    @Autowired
+    private CompressionService compressionService;
+    
+    @Autowired
+    private ImageCompressionService imageCompressionService;
     
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -80,7 +89,26 @@ public class DiaryServiceImpl implements DiaryService {
             // 创建日记
             Diary diary = new Diary();
             diary.setTitle(title);
-            diary.setContent(content);
+            
+            // 压缩内容
+            if (content != null && !content.isEmpty()) {
+                try {
+                    byte[] compressedContent = compressionService.compressContent(content);
+                    // 检查压缩后的大小是否超过 MEDIUMBLOB 的限制（16MB）
+                    if (compressedContent != null && compressedContent.length < content.getBytes().length && compressedContent.length < 16 * 1024 * 1024) {
+                        diary.setContentCompressed(compressedContent);
+                        diary.setCompressed(true);
+                    } else {
+                        diary.setContent(content);
+                        diary.setCompressed(false);
+                    }
+                } catch (IOException e) {
+                    System.out.println("压缩内容失败，使用原始内容: " + e.getMessage());
+                    diary.setContent(content);
+                    diary.setCompressed(false);
+                }
+            }
+            
             diary.setDestination(destination);
             
             User user = userRepository.findById(userId)
@@ -118,20 +146,42 @@ public class DiaryServiceImpl implements DiaryService {
                     
                     for (MultipartFile file : media) {
                         if (!file.isEmpty()) {
-                            // 生成文件名
-                            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-                            // 保存文件
-                            File dest = new File(uploadDirFile, fileName);
-                            file.transferTo(dest);
-                            
-                            // 创建图片记录
-                            DiaryImage image = new DiaryImage();
-                            DiaryImageId imageId = new DiaryImageId();
-                            imageId.setDiaryId(diary.getId());
-                            image.setId(imageId);
-                            image.setImageUrl("/uploads/diaries/" + fileName);
-                            image.setDiary(diary);
-                            diary.getImages().add(image);
+                            File compressedFile = null;
+                            try {
+                                // 检查是否需要压缩
+                                if (imageCompressionService.needsCompression(file)) {
+                                    System.out.println("正在压缩图片: " + file.getOriginalFilename());
+                                    compressedFile = imageCompressionService.compressImage(file);
+                                    System.out.println("图片压缩完成，压缩率: " + 
+                                        imageCompressionService.getCompressionRatio(file.getSize(), compressedFile.length()) + "%");
+                                }
+                                
+                                // 生成文件名
+                                String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+                                // 保存文件
+                                File dest = new File(uploadDirFile, fileName);
+                                if (compressedFile != null) {
+                                    // 使用压缩后的文件
+                                    compressedFile.renameTo(dest);
+                                } else {
+                                    // 使用原始文件
+                                    file.transferTo(dest);
+                                }
+                                
+                                // 创建图片记录
+                                DiaryImage image = new DiaryImage();
+                                DiaryImageId imageId = new DiaryImageId();
+                                imageId.setDiaryId(diary.getId());
+                                image.setId(imageId);
+                                image.setImageUrl("/uploads/diaries/" + fileName);
+                                image.setDiary(diary);
+                                diary.getImages().add(image);
+                            } finally {
+                                // 清理临时文件
+                                if (compressedFile != null && compressedFile.exists()) {
+                                    compressedFile.delete();
+                                }
+                            }
                         }
                     }
                     // 保存更新后的日记（包含图片）
@@ -146,9 +196,7 @@ public class DiaryServiceImpl implements DiaryService {
             
             return diary;
         } catch (Exception e) {
-            System.out.println("创建日记失败: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("创建日记失败", e);
+            throw new RuntimeException("创建日记失败: " + e.getMessage(), e);
         }
     }
 
@@ -188,8 +236,21 @@ public class DiaryServiceImpl implements DiaryService {
 
     @Override
     public Diary getDiaryById(Long id) {
-        return diaryRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Diary not found"));
+        Diary diary = diaryRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("日记不存在: " + id));
+            
+        // 如果内容是压缩的，解压它
+        if (diary.isCompressed() && diary.getContentCompressed() != null) {
+            try {
+                String decompressedContent = compressionService.decompressContent(diary.getContentCompressed());
+                diary.setContent(decompressedContent);
+            } catch (DataFormatException | IOException e) {
+                System.out.println("解压内容失败: " + e.getMessage());
+                throw new RuntimeException("解压日记内容失败", e);
+            }
+        }
+        
+        return diary;
     }
 
     @Override
@@ -314,11 +375,8 @@ public class DiaryServiceImpl implements DiaryService {
     @Override
     public String compressDiaryContent(String content) {
         try {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            GZIPOutputStream gzip = new GZIPOutputStream(out);
-            gzip.write(content.getBytes(StandardCharsets.UTF_8));
-            gzip.close();
-            return Base64.getEncoder().encodeToString(out.toByteArray());
+            byte[] compressed = compressionService.compressContent(content);
+            return Base64.getEncoder().encodeToString(compressed);
         } catch (IOException e) {
             throw new RuntimeException("压缩日记内容失败", e);
         }
@@ -328,11 +386,8 @@ public class DiaryServiceImpl implements DiaryService {
     public String decompressDiaryContent(String compressedContent) {
         try {
             byte[] compressed = Base64.getDecoder().decode(compressedContent);
-            ByteArrayInputStream in = new ByteArrayInputStream(compressed);
-            GZIPInputStream gzip = new GZIPInputStream(in);
-            byte[] decompressed = gzip.readAllBytes();
-            return new String(decompressed, StandardCharsets.UTF_8);
-        } catch (IOException e) {
+            return compressionService.decompressContent(compressed);
+        } catch (IOException | DataFormatException e) {
             throw new RuntimeException("解压日记内容失败", e);
         }
     }
@@ -413,5 +468,58 @@ public class DiaryServiceImpl implements DiaryService {
             .map(Pattern::quote)
             .collect(Collectors.joining(".*"));
         return diaryRepository.findByTitlePattern(regexPattern, pageable);
+    }
+
+    @Override
+    @Transactional
+    public void batchCompressDiaries() {
+        System.out.println("开始批量压缩日记...");
+        List<Diary> diaries = diaryRepository.findAll();
+        int total = diaries.size();
+        int compressed = 0;
+        int skipped = 0;
+        int failed = 0;
+        
+        for (Diary diary : diaries) {
+            try {
+                // 跳过已经压缩的日记
+                if (diary.isCompressed()) {
+                    skipped++;
+                    continue;
+                }
+                
+                String content = diary.getContent();
+                if (content != null && !content.isEmpty()) {
+                    try {
+                        byte[] compressedContent = compressionService.compressContent(content);
+                        if (compressedContent != null && compressedContent.length < content.getBytes().length) {
+                            diary.setContentCompressed(compressedContent);
+                            diary.setCompressed(true);
+                            diaryRepository.save(diary);
+                            compressed++;
+                            System.out.println("成功压缩日记 ID: " + diary.getId() + ", 标题: " + diary.getTitle());
+                        } else {
+                            skipped++;
+                            System.out.println("跳过日记 ID: " + diary.getId() + " (压缩后大小未减小)");
+                        }
+                    } catch (IOException e) {
+                        failed++;
+                        System.out.println("压缩日记 ID: " + diary.getId() + " 失败: " + e.getMessage());
+                    }
+                } else {
+                    skipped++;
+                    System.out.println("跳过日记 ID: " + diary.getId() + " (内容为空)");
+                }
+            } catch (Exception e) {
+                failed++;
+                System.out.println("处理日记 ID: " + diary.getId() + " 时发生错误: " + e.getMessage());
+            }
+        }
+        
+        System.out.println("批量压缩完成！");
+        System.out.println("总日记数: " + total);
+        System.out.println("成功压缩: " + compressed);
+        System.out.println("跳过数量: " + skipped);
+        System.out.println("失败数量: " + failed);
     }
 } 

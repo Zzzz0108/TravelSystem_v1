@@ -62,10 +62,10 @@ public interface DiaryService {
     void updatePopularityScore(Long diaryId);
     
     // 压缩日记内容
-    String compressDiaryContent(String content);
+    String compressDiaryContent(String content) throws RuntimeException;
     
     // 解压日记内容
-    String decompressDiaryContent(String compressedContent);
+    String decompressDiaryContent(String compressedContent) throws RuntimeException;
     
     // 精确标题搜索
     Diary findByExactTitle(String title);
@@ -81,4 +81,7 @@ public interface DiaryService {
     
     // 标题模式搜索
     Page<Diary> findByTitlePattern(String pattern, Pageable pageable);
+    
+    // 批量压缩日记
+    void batchCompressDiaries();
 } 
