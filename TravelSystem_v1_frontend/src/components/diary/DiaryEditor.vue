@@ -81,7 +81,7 @@
             <h3>景点评分</h3>
             <star-rating
               v-model="form.rating"
-              :rating-count="0"
+              :rating-count="form.location.ratingCount || 0"
               :show-text="true"
             />
           </div>

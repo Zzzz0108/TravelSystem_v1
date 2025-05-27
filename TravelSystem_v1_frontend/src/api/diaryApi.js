@@ -123,4 +123,10 @@ export const compressDiaryContent = async (id) => {
 export const decompressDiaryContent = async (id) => {
   const response = await api.post(`/diaries/${id}/decompress`);
   return response.data;
+};
+
+// 增加浏览量
+export const incrementViews = async (id) => {
+  const response = await api.post(`/diaries/${id}/views`);
+  return response.data;
 }; 

@@ -130,6 +130,18 @@ public class DiaryController {
         }
     }
 
+    @PostMapping("/{id}/views")
+    public ResponseEntity<?> incrementViews(@PathVariable Long id) {
+        try {
+            diaryService.incrementViews(id);
+            return ResponseEntity.ok().build();
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Failed to increment views");
+        }
+    }
+
     @GetMapping("/search")
     public ResponseEntity<Page<Diary>> searchDiaries(
             @RequestParam(required = false) String keyword,
@@ -166,6 +178,23 @@ public class DiaryController {
                 return ResponseEntity.badRequest().build();
             }
             return ResponseEntity.ok(diaryService.rateDiary(id, userId, rating));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{id}/user-rating")
+    public ResponseEntity<Integer> getUserRating(
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            String username = authentication.getName();
+            Long userId = userService.getUserIdByUsername(username);
+            if (userId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            Integer rating = diaryService.getUserRating(id, userId);
+            return ResponseEntity.ok(rating);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
         }

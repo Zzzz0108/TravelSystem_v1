@@ -15,17 +15,6 @@
           @search="handleSearch"
         />
       </div>
-      <div class="filter-tags">
-        <span 
-          v-for="tag in popularTags"
-          :key="tag"
-          class="tag"
-          :class="{ active: selectedTags.includes(tag) }"
-          @click="toggleTag(tag)"
-        >
-          #{{ tag }}
-        </span>
-      </div>
       <router-view></router-view>
     </div>
     <floating-action-button @click="openEditor"/>
@@ -57,8 +46,6 @@ const router = useRouter()
 const diaryStore = useDiaryStore()
 const searchQuery = ref('')
 const searchMode = ref('destination') // 默认搜索模式为目的地
-const selectedTags = ref([])
-const popularTags = ['旅行攻略', '美食探店', '摄影圣地', '自驾游', '亲子旅行']
 
 // 初始化数据
 const initData = async () => {
@@ -100,15 +87,6 @@ const filteredDiaries = computed(() => {
   return diaryStore.diaries;
 })
 
-const toggleTag = (tag) => {
-  const index = selectedTags.value.indexOf(tag)
-  if (index > -1) {
-    selectedTags.value.splice(index, 1)
-  } else {
-    selectedTags.value.push(tag)
-  }
-}
-
 const openDetail = (id) => {
   router.push(`/diary/${id}`)
 }
@@ -143,31 +121,6 @@ const openEditor = () => {
 
 .search-mode {
   width: 120px;
-}
-
-.filter-tags {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-  flex-wrap: wrap;
-  
-  .tag {
-    padding: 6px 12px;
-    border-radius: 20px;
-    background: #f5f5f7;
-    color: #666;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    
-    &.active {
-      background: #0071e3;
-      color: white;
-    }
-    
-    &:hover {
-      transform: scale(1.05);
-    }
-  }
 }
 
 .masonry-container {

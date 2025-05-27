@@ -45,7 +45,7 @@
       </div>
       <div class="action-bar">
         <like-button :count="diary.likes" @click="handleLike"/>
-        <comment-button :count="diary.comments_count" @click="openComment"/>
+        <comment-button :count="diary.comments?.length || 0" @click="openComment"/>
         <share-button @click="handleShare"/>
       </div>
     </div>
@@ -61,13 +61,15 @@ import CommentButton from '@/components/common/CommentButton.vue'
 import ShareButton from '@/components/common/ShareButton.vue'
 import { useRouter } from 'vue-router'
 import { onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 
 const defaultImage = '/images/diaries/default.jpg'
-
 const router = useRouter()
+const diaryStore = useDiaryStore()
+
 const forbiddenSelectors = ['.action-bar', '.view-count', 'button', 'a','svg', 'path']
 // 添加卡片点击处理
-const handleCardClick = (event) => {
+const handleCardClick = async (event) => {
   console.log('尝试跳转到日记:', props.diary.id)
   const forbiddenElements = ['.action-bar', '.view-count', 'button', 'a', 'svg', 'path']
   const shouldPrevent = forbiddenElements.some(selector => 
@@ -75,7 +77,17 @@ const handleCardClick = (event) => {
   )
 
   if (!shouldPrevent) {
-    router.push(`/diary/${props.diary.id}`)
+    try {
+      console.log('正在增加浏览量...')
+      await diaryStore.incrementViews(props.diary.id)
+      console.log('浏览量增加成功')
+      router.push(`/diary/${props.diary.id}`)
+    } catch (error) {
+      console.error('增加浏览量失败:', error)
+      ElMessage.error('增加浏览量失败，请稍后重试')
+      // 即使增加浏览量失败，也继续跳转到详情页
+      router.push(`/diary/${props.diary.id}`)
+    }
   }
 }
 
@@ -94,8 +106,6 @@ const props = defineProps({
 const formatDate = (dateString) => {
   return format(new Date(dateString), 'yyyy-MM-dd HH:mm')
 }
-
-const diaryStore = useDiaryStore()
 
 const emit = defineEmits(['update:diary'])
 

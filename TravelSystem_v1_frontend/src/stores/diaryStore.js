@@ -222,10 +222,29 @@ export const useDiaryStore = defineStore('diary', () => {
     try {
       loading.value = true
       const response = await commentApi.getCommentsByDiaryId(diaryId, params)
-      comments.value = response.content
+      if (response && response.content) {
+        // 确保每个评论对象都包含必要的字段
+        const formattedComments = response.content.map(comment => ({
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          author: {
+            id: comment.author?.id,
+            username: comment.author?.username,
+            avatar: comment.author?.avatar
+          }
+        }))
+        comments.value = formattedComments
+        console.log('获取到的评论:', comments.value)
+      } else {
+        comments.value = []
+        console.log('没有评论数据')
+      }
     } catch (err) {
       error.value = err.message
       ElMessage.error('获取评论失败')
+      console.error('获取评论失败:', err)
+      comments.value = []
     } finally {
       loading.value = false
     }
@@ -256,7 +275,7 @@ export const useDiaryStore = defineStore('diary', () => {
           createdAt: response.data.createdAt,
           author: {
             id: response.data.author?.id,
-            name: response.data.author?.name,
+            username: response.data.author?.username,
             avatar: response.data.author?.avatar
           }
         };
@@ -314,6 +333,20 @@ export const useDiaryStore = defineStore('diary', () => {
     } catch (err) {
       error.value = err.message
       throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 获取用户对日记的评分
+  const getUserRating = async (id) => {
+    try {
+      loading.value = true
+      const rating = await diaryApi.getUserRating(id)
+      return rating
+    } catch (err) {
+      error.value = err.message
+      return 0
     } finally {
       loading.value = false
     }
@@ -393,6 +426,24 @@ export const useDiaryStore = defineStore('diary', () => {
     }
   }
 
+  // 增加浏览量
+  const incrementViews = async (id) => {
+    try {
+      await diaryApi.incrementViews(id);
+      // 更新本地状态
+      const index = diaries.value.findIndex(d => d.id === id);
+      if (index !== -1) {
+        diaries.value[index].views += 1;
+      }
+      if (currentDiary.value?.id === id) {
+        currentDiary.value.views += 1;
+      }
+    } catch (err) {
+      error.value = err.message;
+      ElMessage.error('增加浏览量失败');
+    }
+  };
+
   return {
     diaries,
     currentDiary,
@@ -401,6 +452,7 @@ export const useDiaryStore = defineStore('diary', () => {
     error,
     fetchDiaries,
     fetchPopularDiaries,
+    fetchPopularDiariesByScore,
     fetchLatestDiaries,
     fetchDiaryById,
     createDiary,
@@ -413,11 +465,13 @@ export const useDiaryStore = defineStore('diary', () => {
     createComment,
     deleteComment,
     rateDiary,
+    getUserRating,
     searchByDestination,
     searchByExactTitle,
     fullTextSearch,
     compressDiaryContent,
-    decompressDiaryContent
+    decompressDiaryContent,
+    incrementViews
   }
 })
 

@@ -12,37 +12,46 @@ import java.util.Optional;
 
 public interface DiaryRepository extends JpaRepository<Diary, Long> {
     // 根据用户ID查找日记
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> findByAuthorId(Long userId, Pageable pageable);
     
     // 精确搜索日记（标题）
     @Query("SELECT d FROM Diary d WHERE d.title = :title")
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> findByTitle(@Param("title") String title, Pageable pageable);
     
     // 模糊搜索日记（标题）
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> findByTitleContaining(String keyword, Pageable pageable);
     
     // 获取热门日记（按点赞数排序）
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> findAllByOrderByLikesDesc(Pageable pageable);
     
     // 获取最新日记
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> findAllByOrderByCreatedAtDesc(Pageable pageable);
     
     // 获取用户点赞的日记
     @Query("SELECT d FROM Diary d WHERE EXISTS (SELECT 1 FROM d.diaryLikes dl WHERE dl.user.id = :userId)")
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> findLikedByUser(@Param("userId") Long userId, Pageable pageable);
 
     // 使用 EntityGraph 预加载 author 数据
-    @EntityGraph(attributePaths = {"author"})
+    @EntityGraph(attributePaths = {"author", "comments"})
     Optional<Diary> findById(Long id);
     
     // 根据内容搜索
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> findByContentContaining(String keyword, Pageable pageable);
     
     // 根据热度分数排序
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> findAllByOrderByPopularityScoreDesc(Pageable pageable);
     
     // 全文检索
     @Query("SELECT d FROM Diary d WHERE d.content LIKE %:keyword%")
+    @EntityGraph(attributePaths = {"author", "comments"})
     Page<Diary> fullTextSearch(@Param("keyword") String keyword, Pageable pageable);
     
     // 根据目的地搜索

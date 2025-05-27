@@ -56,7 +56,7 @@
       </div>
       
       <div class="comments-section" id="comments">
-        <h2>评论 ({{ diaryStore.currentDiary.comments?.length || 0 }})</h2>
+        <h2>评论 ({{ diaryStore.comments?.length || 0 }})</h2>
         
         <!-- 使用Element Plus重新设计评论输入框 -->
         <el-card class="comment-input-card" shadow="hover">
@@ -91,18 +91,18 @@
         <!-- 使用Element Plus重新设计评论列表 -->
         <div class="comment-list">
           <el-card 
-            v-for="comment in diaryStore.currentDiary.comments || []" 
+            v-for="comment in diaryStore.comments || []" 
             :key="comment.id" 
             class="comment-card"
             shadow="hover"
           >
             <div class="comment">
               <el-avatar :size="40" :src="comment.author?.avatar">
-                {{ comment.author?.name?.charAt(0)?.toUpperCase() }}
+                {{ comment.author?.username?.charAt(0)?.toUpperCase() }}
               </el-avatar>
               <div class="comment-content">
                 <div class="comment-header">
-                  <span class="username">{{ comment.author?.name || '未知用户' }}</span>
+                  <span class="username">{{ comment.author?.username || '未知用户' }}</span>
                   <span class="date">{{ formatDate(comment.createdAt) }}</span>
                 </div>
                 <p class="text">{{ comment.content }}</p>
@@ -172,6 +172,19 @@ onMounted(async () => {
     console.log('正在获取日记:', diaryId)
     await diaryStore.fetchDiaryById(diaryId)
     console.log('获取到的日记:', diaryStore.currentDiary)
+    
+    // 获取评论，添加分页参数
+    await diaryStore.fetchComments(diaryId, {
+      page: 0,
+      size: 100,
+      sort: 'createdAt,desc'
+    })
+    
+    // 如果用户已登录，获取用户对该日记的评分
+    if (userStore.user) {
+      const userRating = await diaryStore.getUserRating(diaryId)
+      currentRating.value = userRating
+    }
   } catch (error) {
     console.error('获取日记失败:', error)
   }

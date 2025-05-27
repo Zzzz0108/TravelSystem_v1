@@ -260,21 +260,36 @@ public class DiaryServiceImpl implements DiaryService {
 
     @Override
     public Page<Diary> getPopularDiaries(Pageable pageable) {
-        return diaryRepository.findAllByOrderByLikesDesc(pageable);
+        Page<Diary> diaries = diaryRepository.findAllByOrderByLikesDesc(pageable);
+        diaries.getContent().forEach(diary -> {
+            diary.setCommentsCount(diary.getComments().size());
+        });
+        return diaries;
     }
 
     @Override
     public Page<Diary> getLatestDiaries(Pageable pageable) {
-        return diaryRepository.findAllByOrderByCreatedAtDesc(pageable);
+        Page<Diary> diaries = diaryRepository.findAllByOrderByCreatedAtDesc(pageable);
+        diaries.getContent().forEach(diary -> {
+            diary.setCommentsCount(diary.getComments().size());
+        });
+        return diaries;
     }
 
     @Override
     public Page<Diary> searchDiaries(String keyword, Pageable pageable) {
         if (keyword == null || keyword.trim().isEmpty()) {
-            return diaryRepository.findAll(pageable);
+            Page<Diary> diaries = diaryRepository.findAll(pageable);
+            diaries.getContent().forEach(diary -> {
+                diary.setCommentsCount(diary.getComments().size());
+            });
+            return diaries;
         }
         System.out.println("Searching for keyword: " + keyword);
         Page<Diary> result = diaryRepository.findByTitleContaining(keyword, pageable);
+        result.getContent().forEach(diary -> {
+            diary.setCommentsCount(diary.getComments().size());
+        });
         System.out.println("Found " + result.getTotalElements() + " results");
         return result;
     }
@@ -370,6 +385,21 @@ public class DiaryServiceImpl implements DiaryService {
         diary.setPopularityScore(popularityScore);
         
         diaryRepository.save(diary);
+    }
+
+    @Override
+    public Integer getUserRating(Long diaryId, Long userId) {
+        Diary diary = diaryRepository.findById(diaryId)
+            .orElseThrow(() -> new EntityNotFoundException("日记不存在"));
+            
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new EntityNotFoundException("用户不存在"));
+            
+        return diary.getRatings().stream()
+            .filter(rating -> rating.getUser().getId().equals(userId))
+            .findFirst()
+            .map(DiaryRating::getRating)
+            .orElse(0);
     }
 
     @Override

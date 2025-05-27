@@ -61,6 +61,9 @@ public interface DiaryService {
     // 更新日记热度分数
     void updatePopularityScore(Long diaryId);
     
+    // 获取用户对日记的评分
+    Integer getUserRating(Long diaryId, Long userId);
+    
     // 压缩日记内容
     String compressDiaryContent(String content) throws RuntimeException;
     

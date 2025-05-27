@@ -58,12 +58,33 @@ const querySearch = async (query, callback) => {
     })
     
     if (response.data && Array.isArray(response.data)) {
-      const suggestions = response.data.map(spot => ({
-        value: spot.name,
-        name: spot.name,
-        city: spot.city,
-        id: spot.id,
-        type: spot.type
+      // 获取每个景点的评分信息
+      const suggestions = await Promise.all(response.data.map(async spot => {
+        try {
+          const ratingResponse = await axios.get(`/api/spots/${spot.id}/ratings`, {
+            baseURL: 'http://localhost:9090'
+          })
+          return {
+            value: spot.name,
+            name: spot.name,
+            city: spot.city,
+            id: spot.id,
+            type: spot.type,
+            ratingCount: ratingResponse.data.ratingCount || 0,
+            averageRating: ratingResponse.data.averageRating || 0
+          }
+        } catch (error) {
+          console.error('获取景点评分信息失败:', error)
+          return {
+            value: spot.name,
+            name: spot.name,
+            city: spot.city,
+            id: spot.id,
+            type: spot.type,
+            ratingCount: 0,
+            averageRating: 0
+          }
+        }
       }))
       callback(suggestions)
     } else {
@@ -80,7 +101,9 @@ const handleSelect = (item) => {
     id: item.id,
     name: item.name,
     city: item.city,
-    type: item.type
+    type: item.type,
+    ratingCount: item.ratingCount,
+    averageRating: item.averageRating
   })
 }
 </script>

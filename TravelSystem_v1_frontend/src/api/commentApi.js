@@ -49,7 +49,7 @@ export const createComment = async (diaryId, comment) => {
         createdAt: response.data.createdAt,
         author: {
           id: response.data.author?.id,
-          name: response.data.author?.name,
+          username: response.data.author?.username,
           avatar: response.data.author?.avatar
         }
       }
