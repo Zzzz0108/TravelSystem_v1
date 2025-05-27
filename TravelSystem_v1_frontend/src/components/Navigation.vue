@@ -15,11 +15,11 @@
       <div class="control-panel">
         <div class="search-container glassmorphism">
           <div class="search-input-group">
-          <input 
+            <input 
               v-model="searchQuery"
-            type="text" 
-            placeholder="输入目的地（如二校门）"
-            class="search-input"
+              type="text" 
+              placeholder="输入目的地（如二校门）"
+              class="search-input"
               @keyup.enter="addDestination"
             >
             <button class="add-button" @click="addDestination">
@@ -33,7 +33,7 @@
               v-for="(dest, index) in selectedDestinations" 
               :key="index"
               class="destination-tag"
-          >
+            >
               <span>{{ dest }}</span>
               <button class="remove-button" @click="removeDestination(index)">×</button>
             </div>
@@ -118,6 +118,26 @@
               </div>
             </div>
           </div>
+
+          <!-- 设施选择面板 -->
+          <div v-if="filteredFacilities.length > 0" class="facilities-panel">
+            <h3>附近设施</h3>
+            <div class="facilities-list">
+              <div 
+                v-for="facility in filteredFacilities" 
+                :key="facility.id"
+                class="facility-item"
+                :class="{ 'selected': selectedFacility?.id === facility.id }"
+                @click="selectFacility(facility)"
+              >
+                <span class="facility-icon">{{ facility.icon || '📍' }}</span>
+                <div class="facility-info">
+                  <h4>{{ facility.name }}</h4>
+                  <p>{{ facility.distance }}米</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
@@ -140,6 +160,10 @@ const selectedTransport = ref('walking')
 const transportMode = ref('walking')
 const mapComponent = ref(null)
 const currentRoute = ref(null)
+
+// 添加新的响应式变量
+const filteredFacilities = ref([])
+const selectedFacility = ref(null)
 
 // 添加设施类型映射
 const facilityTypeMap = {
@@ -192,37 +216,24 @@ const updateRouteInfo = (routeData) => {
 
 // 监听标签选择变化
 watch(selectedTags, async (newTags, oldTags) => {
-  console.log('标签选择发生变化:', {
-    newTags,
-    oldTags,
-    length: newTags.length
-  })
-  
   if (newTags.length > 0) {
     // 获取最后一个选中的标签对应的设施类型
     const lastTag = newTags[newTags.length - 1]
     const selectedType = facilityTypeMap[lastTag]
-    console.log('选中的标签:', lastTag)
-    console.log('对应的设施类型:', selectedType)
-    console.log('地图组件引用:', mapComponent.value)
     
     if (selectedType && mapComponent.value) {
-      console.log('开始调用 filterFacilities 方法')
       try {
-        const routeData = await mapComponent.value.filterFacilities(selectedType)
-        console.log('获取到的路线数据:', routeData)
-        updateRouteInfo(routeData)
+        const facilities = await mapComponent.value.filterFacilities(selectedType)
+        filteredFacilities.value = facilities
       } catch (error) {
-        console.error('调用 filterFacilities 方法失败:', error)
+        console.error('获取设施失败:', error)
       }
-    } else {
-      console.warn('无法调用 filterFacilities 方法:', {
-        hasSelectedType: !!selectedType,
-        hasMapComponent: !!mapComponent.value
-      })
     }
+  } else {
+    filteredFacilities.value = []
+    selectedFacility.value = null
   }
-}, { deep: true, immediate: true })
+}, { deep: true })
 
 const transports = [
   { value: 'walking', label: '步行', icon: WalkIcon },
@@ -277,6 +288,16 @@ const clearRoute = () => {
     // 清空已选择的目的地
     selectedDestinations.value = []
   }
+}
+
+// 选择设施的方法
+const selectFacility = async (facility) => {
+  selectedFacility.value = facility
+  // 将选中的设施添加到目的地列表
+  selectedDestinations.value.push(facility.name)
+  // 清空设施列表
+  filteredFacilities.value = []
+  selectedTags.value = []
 }
 
 onMounted(() => {
@@ -628,5 +649,66 @@ onMounted(() => {
     opacity: 0.5;
     cursor: not-allowed;
   }
+}
+
+.facilities-panel {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.facilities-panel h3 {
+  margin: 0 0 16px 0;
+  color: #1d1d1f;
+  font-size: 18px;
+}
+
+.facilities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.facility-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.facility-item:hover {
+  background: rgba(0, 113, 227, 0.1);
+  transform: translateX(4px);
+}
+
+.facility-item.selected {
+  background: rgba(0, 113, 227, 0.2);
+  border: 1px solid #0071e3;
+}
+
+.facility-icon {
+  font-size: 24px;
+}
+
+.facility-info {
+  flex: 1;
+}
+
+.facility-info h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #1d1d1f;
+}
+
+.facility-info p {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: #86868b;
 }
 </style>

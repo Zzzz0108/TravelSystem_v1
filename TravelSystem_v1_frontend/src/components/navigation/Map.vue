@@ -1,5 +1,26 @@
 <template>
-  <div id="map-container" style="width: 100%; height: 500px; padding:0px ; margin: 0px;"></div>
+  <div class="map-container">
+    <div id="map-container" style="width: 100%; height: 500px; padding:0px ; margin: 0px;"></div>
+    <!-- 添加设施信息面板 -->
+    <div v-if="filteredFacilities.length > 0" class="facilities-panel glassmorphism">
+      <h3>附近设施</h3>
+      <div class="facilities-list">
+        <div 
+          v-for="facility in filteredFacilities" 
+          :key="facility.id"
+          class="facility-item"
+          :class="{ 'selected': selectedFacility?.id === facility.id }"
+          @click="selectFacility(facility)"
+        >
+          <span class="facility-icon">{{ facility.icon || '📍' }}</span>
+          <div class="facility-info">
+            <h4>{{ facility.name }}</h4>
+            <p>{{ facility.distance }}米</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -21,6 +42,8 @@ const selectedFacilities = ref([])
 const highlightedFacilities = ref([])
 const currentRoute = ref(null)
 const userMarker = ref(null) // 添加用户位置标记引用
+const filteredFacilities = ref([])
+const selectedFacility = ref(null)
 
 // 添加调试数据到全局
 window._mapDebug = {
@@ -299,7 +322,7 @@ const calculateRoute = async (destination, transportMode) => {
   }
 }
 
-// 添加筛选设施的方法
+// 修改 filterFacilities 方法
 const filterFacilities = async (facilityType) => {
   if (!map.value) {
     console.error('地图未初始化')
@@ -309,16 +332,8 @@ const filterFacilities = async (facilityType) => {
   try {
     // 获取地图中心点
     const center = map.value.getCenter()
-    console.log('地图中心点:', center)
     
     // 调用后端 API 获取附近的设施
-    console.log('正在请求附近设施，参数:', {
-      lat: center.lat,
-      lng: center.lng,
-      type: facilityType,
-      radius: 1000
-    })
-    
     const response = await axios.get('/api/facilities/nearby', {
       params: {
         lat: center.lat,
@@ -328,48 +343,65 @@ const filterFacilities = async (facilityType) => {
       }
     })
     
-    console.log('获取到的附近设施:', response.data)
-    const filteredFacilities = response.data
+    const facilities = response.data
+    
+    // 计算每个设施到中心点的距离
+    const facilitiesWithDistance = facilities.map(facility => ({
+      ...facility,
+      distance: Math.round(calculateDistance(
+        center.lat,
+        center.lng,
+        facility.latitude,
+        facility.longitude
+      ))
+    }))
+    
+    // 按距离排序
+    facilitiesWithDistance.sort((a, b) => a.distance - b.distance)
     
     // 清除之前的高亮
     highlightedFacilities.value.forEach(marker => marker.setMap(null))
     highlightedFacilities.value = []
     
     // 高亮显示所有符合条件的设施
-    filteredFacilities.forEach(facility => {
-      console.log('创建设施标记:', facility)
+    facilitiesWithDistance.forEach(facility => {
       const marker = new AMap.Marker({
         position: [facility.longitude, facility.latitude],
         title: facility.name,
-        content: `<div style="font-size: 24px;">${facility.icon || '📍'}</div>`,
+        content: `<div class="facility-marker" style="font-size: 24px;">${facility.icon || '📍'}</div>`,
         offset: new AMap.Pixel(-12, -12),
         zIndex: 100,
         animation: 'AMAP_ANIMATION_DROP'
       })
+      
       marker.setMap(map.value)
       highlightedFacilities.value.push(marker)
     })
-    
-    // 找出最近的设施
-    const nearest = findNearestFacility(center, filteredFacilities)
-    console.log('最近的设施:', nearest)
-    
-    // 规划到最近设施的路线
-    if (nearest) {
-      const routeData = await planRoute(nearest)
-      return routeData
-    }
     
     // 调整地图视野以显示所有高亮的设施
     if (highlightedFacilities.value.length > 0) {
       map.value.setFitView(highlightedFacilities.value)
     }
+    
+    // 返回设施列表
+    return facilitiesWithDistance
+    
   } catch (error) {
     console.error('获取附近设施失败:', error)
     if (error.response) {
       console.error('错误响应:', error.response.data)
     }
+    return []
   }
+}
+
+// 添加选择设施的方法
+const selectFacility = async (facility) => {
+  selectedFacility.value = facility
+  
+  // 规划到选中设施的路线
+  const routeData = await planRoute(facility)
+  return routeData
 }
 
 // 辅助方法：找到最近的设施
@@ -669,15 +701,86 @@ defineExpose({
 </script>
 
 <style scoped>
-#map-container {
+.map-container {
   position: relative;
+  width: 100%;
+  height: 100%;
 }
 
-.loading {
+.facilities-panel {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 20px;
+  right: 20px;
+  width: 300px;
+  max-height: 80vh;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
   z-index: 1000;
+}
+
+.facilities-panel h3 {
+  margin: 0 0 16px 0;
+  color: #1d1d1f;
+  font-size: 18px;
+}
+
+.facilities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.facility-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.facility-item:hover {
+  background: rgba(0, 113, 227, 0.1);
+  transform: translateX(4px);
+}
+
+.facility-item.selected {
+  background: rgba(0, 113, 227, 0.2);
+  border: 1px solid #0071e3;
+}
+
+.facility-icon {
+  font-size: 24px;
+}
+
+.facility-info {
+  flex: 1;
+}
+
+.facility-info h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #1d1d1f;
+}
+
+.facility-info p {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: #86868b;
+}
+
+.facility-marker {
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.3));
+}
+
+.glassmorphism {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 </style>
