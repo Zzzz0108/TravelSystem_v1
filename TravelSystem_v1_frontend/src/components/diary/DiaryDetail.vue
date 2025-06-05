@@ -13,16 +13,18 @@
         >
       </template>
       <img 
-        v-else
+        v-else-if="!diaryStore.currentDiary.videoUrl"
         src="/images/diaries/default.jpg"
         class="detail-image"
         loading="lazy"
       >
       <video 
-        v-if="diaryStore.currentDiary.video"
-        :src="getImageUrl(diaryStore.currentDiary.video)"
+        v-if="diaryStore.currentDiary.videoUrl"
+        :src="getImageUrl(diaryStore.currentDiary.videoUrl)"
         class="detail-video"
         controls
+        @error="handleVideoError"
+        @loadeddata="handleVideoLoaded"
       ></video>
     </div>
     
@@ -227,6 +229,22 @@ const handleImageError = (e) => {
   console.log('当前图片路径:', e.target.src)
   console.log('尝试加载默认图片')
   e.target.src = '/images/diaries/default.jpg'
+}
+
+const handleVideoError = (e) => {
+  console.error('视频加载失败:', e)
+  console.error('视频URL:', diaryStore.currentDiary.videoUrl)
+  console.error('处理后的URL:', getImageUrl(diaryStore.currentDiary.videoUrl))
+  console.error('视频元素:', e.target)
+  console.error('错误代码:', e.target.error?.code)
+  console.error('错误信息:', e.target.error?.message)
+}
+
+const handleVideoLoaded = () => {
+  console.log('视频加载成功')
+  console.log('视频URL:', diaryStore.currentDiary.videoUrl)
+  console.log('处理后的URL:', getImageUrl(diaryStore.currentDiary.videoUrl))
+  console.log('视频元素:', document.querySelector('video'))
 }
 
 const submitComment = async () => {

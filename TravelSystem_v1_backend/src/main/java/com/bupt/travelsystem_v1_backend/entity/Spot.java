@@ -32,6 +32,12 @@ public class Spot {
     @JsonIgnore
     private Set<User> favoritedBy = new HashSet<>();
 
+    @Transient
+    private Boolean isFavorited;
+
+    @Transient
+    private Integer userRating;
+
     public enum SpotType {
         SCENIC_AREA, // 景区
         UNIVERSITY   // 学校
@@ -91,6 +97,22 @@ public class Spot {
 
     public void setFavoritedBy(Set<User> favoritedBy) {
         this.favoritedBy = favoritedBy;
+    }
+
+    public Boolean getIsFavorited() {
+        return isFavorited;
+    }
+
+    public void setIsFavorited(Boolean favorited) {
+        isFavorited = favorited;
+    }
+
+    public Integer getUserRating() {
+        return userRating;
+    }
+
+    public void setUserRating(Integer rating) {
+        userRating = rating;
     }
 
     @Override

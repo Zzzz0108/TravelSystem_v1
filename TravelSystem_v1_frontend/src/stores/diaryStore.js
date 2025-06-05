@@ -73,6 +73,27 @@ export const useDiaryStore = defineStore('diary', () => {
     try {
       loading.value = true
       const diary = await diaryApi.getDiaryById(id)
+      console.log('获取到的原始日记数据:', diary)
+      
+      // 处理视频URL
+      if (diary.videoUrl) {
+        console.log('找到视频URL:', diary.videoUrl)
+        diary.videoUrl = diary.videoUrl.startsWith('http') 
+          ? diary.videoUrl 
+          : `http://localhost:9090${diary.videoUrl}`
+        console.log('处理后的视频URL:', diary.videoUrl)
+      }
+      
+      // 处理图片URLs
+      if (diary.images && diary.images.length > 0) {
+        console.log('找到图片:', diary.images)
+        diary.images = diary.images.map(img => ({
+          ...img,
+          url: img.url.startsWith('http') ? img.url : `http://localhost:9090${img.url}`
+        }))
+        console.log('处理后的图片:', diary.images)
+      }
+      
       currentDiary.value = diary
       return diary
     } catch (err) {

@@ -43,7 +43,9 @@ export const useSpotStore = defineStore('spot', () => {
           type: spot.type,
           image: spot.image,
           created_at: spot.created_at,
-          updated_at: spot.updated_at
+          updated_at: spot.updated_at,
+          isFavorited: spot.isFavorited || false,
+          userRating: spot.userRating || null
         }))
       } else {
         spots.value = []
@@ -78,7 +80,9 @@ export const useSpotStore = defineStore('spot', () => {
           type: spot.type,
           image: spot.image,
           created_at: spot.created_at,
-          updated_at: spot.updated_at
+          updated_at: spot.updated_at,
+          isFavorited: spot.isFavorited || false,
+          userRating: spot.userRating || null
         }))
       } else {
         spots.value = []

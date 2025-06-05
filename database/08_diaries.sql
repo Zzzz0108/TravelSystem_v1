@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `travel_system`.`diaries`(
     `rating_count` int NOT NULL DEFAULT '0',
     `popularity_score` double NOT NULL DEFAULT '0',
     `destination` varchar(255) NULL,
+    `video_url` varchar(255) NULL,
     PRIMARY KEY  (`id` ),
     KEY `FKki7hoimuu910cy56y2695to5e` (`user_id` ),
     CONSTRAINT `FKki7hoimuu910cy56y2695to5e` FOREIGN KEY (`user_id`) REFERENCES `travel_system`.`users` (`id`)

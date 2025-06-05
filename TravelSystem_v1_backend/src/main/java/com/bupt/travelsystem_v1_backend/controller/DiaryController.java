@@ -320,4 +320,9 @@ public class DiaryController {
                 .body("批量压缩失败: " + e.getMessage());
         }
     }
+
+    @GetMapping("/recommended")
+    public ResponseEntity<Page<Diary>> getRecommendedDiaries(Pageable pageable) {
+        return ResponseEntity.ok(diaryService.getRecommendedDiaries(pageable));
+    }
 } 

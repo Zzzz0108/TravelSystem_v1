@@ -7,7 +7,9 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @Entity
@@ -77,7 +79,29 @@ public class Diary {
     @Column(name = "popularity_score", nullable = false)
     private Double popularityScore = 0.0;
 
+    @Transient
+    private Integer userRating;
+
+    @Column(name = "video_url")
+    private String videoUrl;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public Integer getUserRating() {
+        return userRating;
+    }
+
+    public void setUserRating(Integer rating) {
+        this.userRating = rating;
+    }
+
+    public String getVideoUrl() {
+        return videoUrl;
+    }
+
+    public void setVideoUrl(String videoUrl) {
+        this.videoUrl = videoUrl;
+    }
 } 

@@ -25,6 +25,14 @@
           :spot-id="spot.id"
           :initial-favorited="isFavorite"
         />
+        <el-rate
+          v-if="spot.userRating"
+          v-model="spot.userRating"
+          disabled
+          show-score
+          text-color="#ff9900"
+          score-template="我的评分: {value}"
+        />
       </div>
     </div>
   </div>

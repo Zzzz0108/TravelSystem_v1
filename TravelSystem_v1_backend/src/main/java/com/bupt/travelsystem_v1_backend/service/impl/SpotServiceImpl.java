@@ -19,6 +19,8 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Collections;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
 @Service
 public class SpotServiceImpl implements SpotService {
@@ -274,6 +276,14 @@ public class SpotServiceImpl implements SpotService {
             System.out.println("=== SpotServiceImpl.getRecommendedSpots ===");
             System.out.println("获取推荐景点，限制数量: " + limit);
             
+            // 获取当前用户
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            User currentUser = null;
+            if (authentication != null && authentication.isAuthenticated()) {
+                String username = authentication.getName();
+                currentUser = userRepository.findByUsername(username).orElse(null);
+            }
+            
             // 获取所有景点
             List<Spot> allSpots = spotRepository.findAll();
             System.out.println("总景点数量: " + allSpots.size());
@@ -294,27 +304,67 @@ public class SpotServiceImpl implements SpotService {
                 }
             }
             
+            // 计算用户偏好权重
+            Map<String, Double> cityWeights = new HashMap<>();
+            Map<Spot.SpotType, Double> typeWeights = new HashMap<>();
+            
+            if (currentUser != null) {
+                // 获取用户收藏的景点
+                List<Spot> userFavorites = spotRepository.findByFavoritedByContaining(
+                    currentUser.getId(), 
+                    Sort.by(Sort.Direction.DESC, "popularity")
+                );
+                
+                // 计算城市和类型的权重
+                int totalFavorites = userFavorites.size();
+                if (totalFavorites > 0) {
+                    for (Spot favorite : userFavorites) {
+                        // 城市权重
+                        cityWeights.merge(favorite.getCity(), 1.0 / totalFavorites, Double::sum);
+                        // 类型权重
+                        typeWeights.merge(favorite.getType(), 1.0 / totalFavorites, Double::sum);
+                    }
+                }
+            }
+            
             // 计算每个景点的综合分数
             List<SpotWithScore> spotsWithScores = new ArrayList<>();
             allSpots.forEach(spot -> {
-                Double avgRating = spotRatingRepository.getAverageRatingBySpot(spot);
-                Long ratingCount = spotRatingRepository.getRatingCountBySpot(spot);
+                final Double avgRating = spotRatingRepository.getAverageRatingBySpot(spot);
+                final Long ratingCount = spotRatingRepository.getRatingCountBySpot(spot);
                 
                 // 如果还没有评分，使用默认值
-                if (avgRating == null) avgRating = 0.0;
-                if (ratingCount == null) ratingCount = 0L;
+                final double finalAvgRating = avgRating != null ? avgRating : 0.0;
+                final long finalRatingCount = ratingCount != null ? ratingCount : 0L;
                 
-                // 计算综合分数：热度 * 0.4 + 平均评分 * 0.6
-                double popularity = spot.getPopularity() != null ? spot.getPopularity() : 0;
-                double score = popularity * 0.4 + avgRating * 0.6;
+                // 基础分数：热度 * 0.4 + 平均评分 * 0.6
+                final double popularity = spot.getPopularity() != null ? spot.getPopularity() : 0;
+                final double baseScore = popularity * 0.4 + finalAvgRating * 0.6;
                 
-                spotsWithScores.add(new SpotWithScore(spot, score));
+                // 个性化权重
+                double personalizationWeight = 1.0;
+                if (currentUser != null) {
+                    // 城市权重
+                    final Double cityWeight = cityWeights.getOrDefault(spot.getCity(), 0.0);
+                    // 类型权重
+                    final Double typeWeight = typeWeights.getOrDefault(spot.getType(), 0.0);
+                    
+                    // 综合个性化权重 (城市权重 * 0.6 + 类型权重 * 0.4)
+                    personalizationWeight = 1.0 + (cityWeight * 0.6 + typeWeight * 0.4);
+                }
+                
+                // 最终分数 = 基础分数 * 个性化权重
+                final double finalScore = baseScore * personalizationWeight;
+                
+                spotsWithScores.add(new SpotWithScore(spot, finalScore));
                 
                 System.out.println("景点: " + spot.getName() + 
                     ", 热度: " + popularity + 
-                    ", 平均评分: " + avgRating + 
-                    ", 评分数量: " + ratingCount + 
-                    ", 综合分数: " + score);
+                    ", 平均评分: " + finalAvgRating + 
+                    ", 评分数量: " + finalRatingCount + 
+                    ", 基础分数: " + baseScore +
+                    ", 个性化权重: " + personalizationWeight +
+                    ", 最终分数: " + finalScore);
             });
             
             // 使用堆排序获取前N个景点

@@ -4,6 +4,7 @@ import com.bupt.travelsystem_v1_backend.entity.Diary;
 import com.bupt.travelsystem_v1_backend.entity.User;
 import com.bupt.travelsystem_v1_backend.entity.DiaryLike;
 import com.bupt.travelsystem_v1_backend.entity.DiaryRating;
+import com.bupt.travelsystem_v1_backend.entity.DiaryRatingId;
 import com.bupt.travelsystem_v1_backend.entity.DiaryImage;
 import com.bupt.travelsystem_v1_backend.entity.DiaryImageId;
 import com.bupt.travelsystem_v1_backend.repository.DiaryRepository;
@@ -14,6 +15,7 @@ import com.bupt.travelsystem_v1_backend.service.DiaryService;
 import com.bupt.travelsystem_v1_backend.service.SpotService;
 import com.bupt.travelsystem_v1_backend.service.CompressionService;
 import com.bupt.travelsystem_v1_backend.service.ImageCompressionService;
+import com.bupt.travelsystem_v1_backend.service.VideoCompressionService;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +41,13 @@ import java.util.Map;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.DataFormatException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.util.PriorityQueue;
+import java.util.ArrayList;
+import java.util.HashMap;
+import org.springframework.data.domain.PageImpl;
+import java.util.Optional;
 
 @Service
 public class DiaryServiceImpl implements DiaryService {
@@ -63,6 +72,9 @@ public class DiaryServiceImpl implements DiaryService {
     
     @Autowired
     private ImageCompressionService imageCompressionService;
+    
+    @Autowired
+    private VideoCompressionService videoCompressionService;
     
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -146,45 +158,76 @@ public class DiaryServiceImpl implements DiaryService {
                     
                     for (MultipartFile file : media) {
                         if (!file.isEmpty()) {
-                            File compressedFile = null;
-                            try {
-                                // 检查是否需要压缩
-                                if (imageCompressionService.needsCompression(file)) {
-                                    System.out.println("正在压缩图片: " + file.getOriginalFilename());
-                                    compressedFile = imageCompressionService.compressImage(file);
-                                    System.out.println("图片压缩完成，压缩率: " + 
-                                        imageCompressionService.getCompressionRatio(file.getSize(), compressedFile.length()) + "%");
+                            // 生成文件名
+                            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+                            // 保存文件
+                            File dest = new File(uploadDirFile, fileName);
+                            
+                            if (file.getContentType().startsWith("image/")) {
+                                // 处理图片文件
+                                File compressedFile = null;
+                                try {
+                                    // 检查是否需要压缩
+                                    if (imageCompressionService.needsCompression(file)) {
+                                        System.out.println("正在压缩图片: " + file.getOriginalFilename());
+                                        compressedFile = imageCompressionService.compressImage(file);
+                                        System.out.println("图片压缩完成，压缩率: " + 
+                                            imageCompressionService.getCompressionRatio(file.getSize(), compressedFile.length()) + "%");
+                                    }
+                                    
+                                    if (compressedFile != null) {
+                                        // 使用压缩后的文件
+                                        compressedFile.renameTo(dest);
+                                    } else {
+                                        // 使用原始文件
+                                        file.transferTo(dest);
+                                    }
+                                    
+                                    // 创建图片记录
+                                    DiaryImage image = new DiaryImage();
+                                    DiaryImageId imageId = new DiaryImageId();
+                                    imageId.setDiaryId(diary.getId());
+                                    image.setId(imageId);
+                                    image.setImageUrl("/uploads/diaries/" + fileName);
+                                    image.setDiary(diary);
+                                    diary.getImages().add(image);
+                                } finally {
+                                    // 清理临时文件
+                                    if (compressedFile != null && compressedFile.exists()) {
+                                        compressedFile.delete();
+                                    }
                                 }
-                                
-                                // 生成文件名
-                                String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-                                // 保存文件
-                                File dest = new File(uploadDirFile, fileName);
-                                if (compressedFile != null) {
-                                    // 使用压缩后的文件
-                                    compressedFile.renameTo(dest);
-                                } else {
-                                    // 使用原始文件
-                                    file.transferTo(dest);
-                                }
-                                
-                                // 创建图片记录
-                                DiaryImage image = new DiaryImage();
-                                DiaryImageId imageId = new DiaryImageId();
-                                imageId.setDiaryId(diary.getId());
-                                image.setId(imageId);
-                                image.setImageUrl("/uploads/diaries/" + fileName);
-                                image.setDiary(diary);
-                                diary.getImages().add(image);
-                            } finally {
-                                // 清理临时文件
-                                if (compressedFile != null && compressedFile.exists()) {
-                                    compressedFile.delete();
+                            } else if (file.getContentType().startsWith("video/")) {
+                                // 处理视频文件
+                                File compressedFile = null;
+                                try {
+                                    // 检查是否需要压缩
+                                    if (videoCompressionService.needsCompression(file)) {
+                                        System.out.println("正在压缩视频: " + file.getOriginalFilename());
+                                        compressedFile = videoCompressionService.compressVideo(file);
+                                        System.out.println("视频压缩完成，压缩率: " + 
+                                            videoCompressionService.getCompressionRatio(file.getSize(), compressedFile.length()) + "%");
+                                    }
+                                    
+                                    if (compressedFile != null) {
+                                        // 使用压缩后的文件
+                                        compressedFile.renameTo(dest);
+                                    } else {
+                                        // 使用原始文件
+                                        file.transferTo(dest);
+                                    }
+                                    
+                                    diary.setVideoUrl("/uploads/diaries/" + fileName);
+                                } finally {
+                                    // 清理临时文件
+                                    if (compressedFile != null && compressedFile.exists()) {
+                                        compressedFile.delete();
+                                    }
                                 }
                             }
                         }
                     }
-                    // 保存更新后的日记（包含图片）
+                    // 保存更新后的日记（包含媒体文件）
                     diary = diaryRepository.save(diary);
                     System.out.println("媒体文件保存成功");
                 } catch (Exception e) {
@@ -551,5 +594,151 @@ public class DiaryServiceImpl implements DiaryService {
         System.out.println("成功压缩: " + compressed);
         System.out.println("跳过数量: " + skipped);
         System.out.println("失败数量: " + failed);
+    }
+
+    @Override
+    public Page<Diary> getRecommendedDiaries(Pageable pageable) {
+        try {
+            System.out.println("=== DiaryServiceImpl.getRecommendedDiaries ===");
+            System.out.println("获取推荐日记，分页信息: " + pageable);
+            
+            // 获取当前用户
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            final User currentUser;
+            if (authentication != null && authentication.isAuthenticated()) {
+                String username = authentication.getName();
+                currentUser = userRepository.findByUsername(username).orElse(null);
+            } else {
+                currentUser = null;
+            }
+            
+            // 获取所有日记
+            List<Diary> allDiaries = diaryRepository.findAll();
+            System.out.println("总日记数量: " + allDiaries.size());
+            
+            // 创建一个包装类来存储日记和其综合分数
+            class DiaryWithScore implements Comparable<DiaryWithScore> {
+                Diary diary;
+                double score;
+                
+                DiaryWithScore(Diary diary, double score) {
+                    this.diary = diary;
+                    this.score = score;
+                }
+                
+                @Override
+                public int compareTo(DiaryWithScore other) {
+                    return Double.compare(this.score, other.score);
+                }
+            }
+            
+            // 计算用户偏好权重
+            Map<String, Double> destinationWeights = new HashMap<>();
+            
+            if (currentUser != null) {
+                // 获取用户评分过的日记
+                List<DiaryRating> userRatings = diaryRatingRepository.findByUserId(currentUser.getId());
+                
+                // 计算目的地权重
+                int totalRatings = userRatings.size();
+                if (totalRatings > 0) {
+                    for (DiaryRating rating : userRatings) {
+                        // 只考虑评分大于等于4分的日记
+                        if (rating.getRating() >= 4) {
+                            String destination = rating.getDiary().getDestination();
+                            if (destination != null && !destination.isEmpty()) {
+                                destinationWeights.merge(destination, 1.0 / totalRatings, Double::sum);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 计算每个日记的综合分数
+            List<DiaryWithScore> diariesWithScores = new ArrayList<>();
+            allDiaries.forEach(diary -> {
+                // 基础分数：热度 * 0.4 + 平均评分 * 0.6
+                final double popularity = diary.getViews() != null ? diary.getViews() : 0;
+                final double avgRating = diary.getAverageRating() != null ? diary.getAverageRating() : 0.0;
+                final double baseScore = popularity * 0.4 + avgRating * 0.6;
+                
+                // 个性化权重
+                final double personalizationWeight;
+                if (currentUser != null && diary.getDestination() != null) {
+                    // 目的地权重
+                    final Double destinationWeight = destinationWeights.getOrDefault(diary.getDestination(), 0.0);
+                    // 综合个性化权重
+                    personalizationWeight = 1.0 + destinationWeight;
+                } else {
+                    personalizationWeight = 1.0;
+                }
+                
+                // 最终分数 = 基础分数 * 个性化权重
+                final double finalScore = baseScore * personalizationWeight;
+                
+                diariesWithScores.add(new DiaryWithScore(diary, finalScore));
+                
+                System.out.println("日记: " + diary.getTitle() + 
+                    ", 热度: " + popularity + 
+                    ", 平均评分: " + avgRating + 
+                    ", 基础分数: " + baseScore +
+                    ", 个性化权重: " + personalizationWeight +
+                    ", 最终分数: " + finalScore);
+            });
+            
+            // 使用堆排序获取前N个日记
+            PriorityQueue<DiaryWithScore> heap = new PriorityQueue<>();
+            
+            for (DiaryWithScore diaryWithScore : diariesWithScores) {
+                heap.offer(diaryWithScore);
+                if (heap.size() > pageable.getPageSize()) {
+                    heap.poll();
+                }
+            }
+            
+            // 将堆中的日记转换为列表并反转顺序（从高到低）
+            List<Diary> recommendedDiaries = new ArrayList<>();
+            while (!heap.isEmpty()) {
+                recommendedDiaries.add(0, heap.poll().diary);
+            }
+            
+            System.out.println("推荐日记数量: " + recommendedDiaries.size());
+            
+            // 创建分页结果
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), recommendedDiaries.size());
+            
+            return new PageImpl<>(
+                recommendedDiaries.subList(start, end),
+                pageable,
+                recommendedDiaries.size()
+            );
+            
+        } catch (Exception e) {
+            System.out.println("获取推荐日记失败: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("获取推荐日记失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public Page<Diary> getAllDiaries(Pageable pageable) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = null;
+        if (authentication != null && authentication.isAuthenticated()) {
+            currentUser = userRepository.findByUsername(authentication.getName()).orElse(null);
+        }
+
+        Page<Diary> diaries = diaryRepository.findAll(pageable);
+        
+        if (currentUser != null) {
+            for (Diary diary : diaries.getContent()) {
+                // 设置用户评分
+                Optional<DiaryRating> userRating = diaryRatingRepository.findById(new DiaryRatingId(diary.getId(), currentUser.getId()));
+                userRating.ifPresent(rating -> diary.setUserRating(rating.getRating()));
+            }
+        }
+        
+        return diaries;
     }
 } 

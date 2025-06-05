@@ -87,4 +87,9 @@ public interface DiaryService {
     
     // 批量压缩日记
     void batchCompressDiaries();
+    
+    // 获取推荐日记
+    Page<Diary> getRecommendedDiaries(Pageable pageable);
+    
+    Page<Diary> getAllDiaries(Pageable pageable);
 } 

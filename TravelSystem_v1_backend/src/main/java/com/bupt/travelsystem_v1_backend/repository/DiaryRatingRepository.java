@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface DiaryRatingRepository extends JpaRepository<DiaryRating, DiaryRatingId> {
     boolean existsByDiaryAndUser(Diary diary, User user);
@@ -18,4 +20,7 @@ public interface DiaryRatingRepository extends JpaRepository<DiaryRating, DiaryR
     
     @Query("SELECT COUNT(r) FROM DiaryRating r WHERE r.diary = :diary")
     Long getRatingCountByDiary(@Param("diary") Diary diary);
+    
+    @Query("SELECT r FROM DiaryRating r WHERE r.user.id = :userId")
+    List<DiaryRating> findByUserId(@Param("userId") Long userId);
 } 

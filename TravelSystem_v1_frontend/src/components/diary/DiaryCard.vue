@@ -20,8 +20,8 @@
         @error="handleImageError"
       >
       <video 
-        v-if="diary.video"
-        :src="diary.video"
+        v-if="diary.videoUrl"
+        :src="diary.videoUrl"
         class="card-video"
         controls
       ></video>
